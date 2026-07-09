@@ -24,3 +24,78 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@media print {
+  @page {
+    margin: 0.6in;
+  }
+
+  body {
+    background: white;
+    color: black;
+  }
+
+  .print-root {
+    min-height: 0;
+    background: white;
+    color: black;
+  }
+
+  .print-page-shell {
+    max-width: none;
+    padding: 0;
+  }
+
+  .print-hide {
+    display: none !important;
+  }
+
+  .printable-plan {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: white;
+    padding: 0;
+    color: black;
+  }
+
+  .print-plan-content {
+    border-radius: 0;
+    background: white;
+    padding: 0;
+  }
+
+  .print-plan-header {
+    border-color: #a3a3a3;
+  }
+
+  .print-plan-header p,
+  .print-plan-row span:last-child,
+  .print-plan-row p,
+  .print-plan-note p {
+    color: #404040;
+  }
+
+  .print-plan-header > p:first-child {
+    color: #92400e;
+  }
+
+  .print-plan-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .print-plan-section,
+  .print-plan-row,
+  .print-plan-note {
+    break-inside: avoid;
+  }
+
+  .print-plan-row {
+    border-color: #d4d4d4;
+  }
+
+  .print-plan-note {
+    border-color: #a3a3a3;
+    background: #fafafa;
+  }
+}
