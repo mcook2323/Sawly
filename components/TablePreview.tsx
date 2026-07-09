@@ -10,7 +10,7 @@ export function TablePreview({ length, width, height }: TablePreviewProps) {
   const topDepth = Math.min(120, Math.max(60, width * 2));
 
   return (
-    <div className="flex h-full min-h-96 items-center justify-center rounded-2xl bg-neutral-800 p-8">
+    <div className="flex min-h-96 items-center justify-center rounded-2xl bg-neutral-800 p-8">
       <svg
         width="100%"
         height="100%"
@@ -66,15 +66,15 @@ export function TablePreview({ length, width, height }: TablePreviewProps) {
           />
 
           <text x="0" y={topDepth + previewHeight + 35} fill="white">
-            Length: {length}"
+            Length: {length}&quot;
           </text>
 
           <text x={previewWidth - 120} y={topDepth + previewHeight + 35} fill="white">
-            Width: {width}"
+            Width: {width}&quot;
           </text>
 
           <text x={previewWidth + 20} y={topDepth + previewHeight / 2} fill="white">
-            Height: {height}"
+            Height: {height}&quot;
           </text>
         </g>
       </svg>
