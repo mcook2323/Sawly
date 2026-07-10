@@ -219,7 +219,8 @@ export default function OutdoorTablePage() {
             <h2 className="font-semibold text-[#87493d]">Check your dimensions</h2>
             <p className="mt-1 text-sm leading-6 text-[#7d665f]">
               Enter measurements within the supported ranges to generate the
-              shopping list, cut list, hardware, and printable plan.
+              shopping list, cut list, hardware, build steps, and printable
+              plan.
             </p>
           </div>
         )}

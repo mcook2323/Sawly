@@ -52,12 +52,12 @@ export function PlanTabs({ plan, shoppingList }: PlanTabsProps) {
   }
 
   return (
-    <section className="mt-6 sm:mt-8">
-      <div className="print-hide mb-4 overflow-x-auto pb-1">
+    <section className="mt-10 sm:mt-14">
+      <div className="print-hide overflow-x-auto">
         <div
           role="tablist"
           aria-label="Project plan sections"
-          className="inline-flex min-w-full rounded-full border border-[#d8cdbf] bg-[#eee7dc] p-1 sm:min-w-0"
+          className="inline-flex min-w-full border-b border-[#d8cdbf] sm:min-w-0"
         >
           {TABS.map((tab, index) => {
             const isActive = activeTab === tab.id;
@@ -73,10 +73,10 @@ export function PlanTabs({ plan, shoppingList }: PlanTabsProps) {
                 tabIndex={isActive ? 0 : -1}
                 onClick={() => setActiveTab(tab.id)}
                 onKeyDown={(event) => selectAdjacentTab(event, index)}
-                className={`min-w-max flex-1 cursor-pointer rounded-lg px-4 py-3 text-sm font-semibold transition-all sm:flex-none sm:px-6 ${
+                className={`min-w-max flex-1 cursor-pointer border-b-2 px-4 py-3.5 text-sm font-semibold transition-colors sm:flex-none sm:px-6 ${
                   isActive
-                    ? "bg-[#fffdf9] text-[#443a32] shadow-[0_4px_16px_rgba(91,70,49,0.12)]"
-                    : "text-[#7f7368] hover:bg-white/50 hover:text-[#443a32]"
+                    ? "border-[#667154] text-[#435037]"
+                    : "border-transparent text-[#8a7e73] hover:border-[#c5b8a8] hover:text-[#443a32]"
                 }`}
               >
                 {tab.label}
@@ -91,7 +91,7 @@ export function PlanTabs({ plan, shoppingList }: PlanTabsProps) {
         role="tabpanel"
         aria-labelledby="shopping-tab"
         hidden={activeTab !== "shopping"}
-        className="print-hide rounded-[2rem] border border-[#ddd2c4] bg-[#fffdf9] p-5 shadow-[0_18px_55px_rgba(91,70,49,0.09)] sm:p-8"
+        className="print-hide py-8 sm:py-10"
       >
         <ShoppingListPanel shoppingList={shoppingList} />
       </div>
@@ -101,7 +101,7 @@ export function PlanTabs({ plan, shoppingList }: PlanTabsProps) {
         role="tabpanel"
         aria-labelledby="cuts-tab"
         hidden={activeTab !== "cuts"}
-        className="print-hide rounded-[2rem] border border-[#ddd2c4] bg-[#fffdf9] p-5 shadow-[0_18px_55px_rgba(91,70,49,0.09)] sm:p-8"
+        className="print-hide py-8 sm:py-10"
       >
         <CutListPanel plan={plan} />
       </div>
@@ -111,7 +111,7 @@ export function PlanTabs({ plan, shoppingList }: PlanTabsProps) {
         role="tabpanel"
         aria-labelledby="steps-tab"
         hidden={activeTab !== "steps"}
-        className="print-hide rounded-[2rem] border border-[#ddd2c4] bg-[#fffdf9] p-5 shadow-[0_18px_55px_rgba(91,70,49,0.09)] sm:p-8"
+        className="print-hide py-8 sm:py-10"
       >
         <BuildStepsPanel steps={buildSteps} />
       </div>
