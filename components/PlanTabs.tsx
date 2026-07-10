@@ -52,12 +52,12 @@ export function PlanTabs({ plan, shoppingList, buildSteps }: PlanTabsProps) {
   }
 
   return (
-    <section className="mt-10 sm:mt-14">
+    <section className="mt-12 sm:mt-16">
       <div className="print-hide overflow-x-auto">
         <div
           role="tablist"
           aria-label="Project plan sections"
-          className="inline-flex min-w-full border-b border-[#d8cdbf] sm:min-w-0"
+          className="inline-flex min-w-full border-b border-[var(--color-border)] sm:min-w-0"
         >
           {TABS.map((tab, index) => {
             const isActive = activeTab === tab.id;
@@ -75,8 +75,8 @@ export function PlanTabs({ plan, shoppingList, buildSteps }: PlanTabsProps) {
                 onKeyDown={(event) => selectAdjacentTab(event, index)}
                 className={`min-w-max flex-1 cursor-pointer border-b-2 px-4 py-3.5 text-sm font-semibold transition-colors sm:flex-none sm:px-6 ${
                   isActive
-                    ? "border-[#667154] text-[#435037]"
-                    : "border-transparent text-[#8a7e73] hover:border-[#c5b8a8] hover:text-[#443a32]"
+                    ? "border-[var(--color-brand)] text-[var(--color-brand)]"
+                    : "border-transparent text-[var(--color-ink-subtle)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-ink)]"
                 }`}
               >
                 {tab.label}

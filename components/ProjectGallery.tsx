@@ -56,17 +56,17 @@ export function ProjectGallery({
 
   return (
     <section aria-label={ariaLabel} className="mt-6 sm:mt-8">
-      <div className="overflow-hidden rounded-[2rem] border border-[#d9cdbd] bg-[#fffdf9] shadow-[0_24px_70px_rgba(91,70,49,0.13)]">
-        <div className="flex flex-col gap-3 border-b border-[#e3d9cc] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+      <div className="ds-card overflow-hidden shadow-[var(--shadow-lg)]">
+        <div className="flex flex-col gap-3 border-b border-[var(--color-border)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#a05f47]">
+            <p className="ds-eyebrow">
               Project gallery
             </p>
-            <h2 className="editorial-title mt-1 text-2xl text-[#3f352e]">
+            <h2 className="ds-subheading mt-2">
               {activeItem.label}
             </h2>
           </div>
-          <p className="max-w-lg text-sm leading-6 text-[#7d7268] sm:text-right">
+          <p className="ds-body max-w-lg text-sm sm:text-right">
             {activeItem.description}
           </p>
         </div>
@@ -113,8 +113,8 @@ export function ProjectGallery({
               aria-current={isActive ? "true" : undefined}
               className={`min-w-0 cursor-pointer overflow-hidden rounded-xl border bg-[#fffdf9] text-left transition-colors focus:outline-none focus:ring-4 focus:ring-[#667154]/20 ${
                 isActive
-                  ? "border-[#667154] ring-2 ring-[#667154]/15"
-                  : "border-[#ddd2c4] hover:border-[#b9aa97]"
+                  ? "border-[var(--color-brand)] ring-2 ring-[var(--color-brand)]/15"
+                  : "border-[var(--color-border)] hover:border-[var(--color-border-strong)]"
               }`}
             >
               <div className="pointer-events-none h-16 overflow-hidden sm:h-24">

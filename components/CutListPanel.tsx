@@ -10,16 +10,16 @@ export function CutListPanel({ plan }: CutListPanelProps) {
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.6fr)]">
       <section>
         <div className="mb-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#a05f47]">
+          <p className="ds-eyebrow">
             Fabrication
           </p>
-          <h2 className="editorial-title mt-2 text-3xl">Cut list</h2>
+          <h2 className="ds-heading mt-3">Cut list</h2>
           <p className="mt-2 text-sm text-[#7d7268]">
             Finished dimensions for every part in the build.
           </p>
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-[#e2d8cc]">
+        <div className="overflow-hidden rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)]">
           {plan.cutList.map((piece, index) => (
             <div
               key={piece.name}
@@ -50,10 +50,10 @@ export function CutListPanel({ plan }: CutListPanelProps) {
 
       <section>
         <div className="mb-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#a05f47]">
+          <p className="ds-eyebrow">
             Assembly
           </p>
-          <h2 className="editorial-title mt-2 text-3xl">Hardware</h2>
+          <h2 className="ds-heading mt-3">Hardware</h2>
           <p className="mt-2 text-sm text-[#7d7268]">
             Fasteners and supplies required to assemble the table.
           </p>
@@ -63,7 +63,7 @@ export function CutListPanel({ plan }: CutListPanelProps) {
           {plan.hardware.map((item) => (
             <div
               key={item.name}
-              className="flex items-center justify-between gap-4 rounded-xl border border-[#e2d8cc] bg-[#fcfaf6] p-4 transition-all hover:-translate-y-0.5 hover:border-[#cdbdaa] hover:bg-[#f7f1e8]"
+              className="ds-card ds-card-interactive flex items-center justify-between gap-4 p-4"
             >
               <span className="text-sm font-medium text-[#4b4139]">
                 {item.name}

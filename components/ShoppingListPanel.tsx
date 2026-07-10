@@ -21,10 +21,10 @@ export function ShoppingListPanel({
     <div>
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#a05f47]">
+          <p className="ds-eyebrow">
             Materials
           </p>
-          <h2 className="editorial-title mt-2 text-3xl">
+          <h2 className="ds-heading mt-3">
             Shopping list
           </h2>
           <p className="mt-2 text-sm text-[#7d7268]">
@@ -64,7 +64,7 @@ export function ShoppingListPanel({
             {shoppingList.lumber.map((item) => (
               <div
                 key={`${item.material}-${item.dimensions}`}
-                className="rounded-xl border border-[#e2d8cc] bg-[#fcfaf6] p-4 transition-all hover:-translate-y-0.5 hover:border-[#cdbdaa] hover:bg-[#f7f1e8]"
+                className="ds-card ds-card-interactive p-4"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div>
@@ -94,7 +94,7 @@ export function ShoppingListPanel({
             {shoppingList.hardware.map((item) => (
               <div
                 key={item.name}
-                className="flex items-center justify-between gap-4 rounded-xl border border-[#e2d8cc] bg-[#fcfaf6] p-4 transition-all hover:-translate-y-0.5 hover:border-[#cdbdaa] hover:bg-[#f7f1e8]"
+                className="ds-card ds-card-interactive flex items-center justify-between gap-4 p-4"
               >
                 <div>
                   <div>{item.name}</div>
@@ -118,7 +118,7 @@ export function ShoppingListPanel({
             {shoppingList.tools.map((item) => (
               <div
                 key={item.name}
-                className="rounded-xl border border-[#e2d8cc] bg-[#fcfaf6] p-4 transition-colors hover:border-[#cdbdaa] hover:bg-[#f7f1e8]"
+                className="ds-card p-4 transition-colors hover:border-[var(--color-border-strong)]"
               >
                 <div>{item.name}</div>
                 <div className="mt-1 text-sm text-[#94887d]">Required</div>

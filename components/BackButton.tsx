@@ -29,7 +29,7 @@ export function BackButton({ fallbackHref = "/#catalog" }: BackButtonProps) {
     <button
       type="button"
       onClick={handleBack}
-      className="group inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-[#7d7268] transition-colors hover:text-[#657151] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#667154]/40"
+      className="ds-button-ghost group inline-flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-sm font-medium transition-colors"
     >
       <span aria-hidden="true" className="transition-transform group-hover:-translate-x-0.5">
         ←

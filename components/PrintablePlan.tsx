@@ -16,10 +16,10 @@ export function PrintablePlan({
   buildSteps,
 }: PrintablePlanProps) {
   return (
-    <section className="printable-plan rounded-[2rem] border border-[#ddd2c4] bg-[#fffdf9] p-5 text-[#332b25] shadow-[0_18px_55px_rgba(91,70,49,0.09)] sm:p-8">
+    <section className="printable-plan ds-card p-5 text-[var(--color-ink)] sm:p-8">
       <div className="print-hide mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-widest text-[#a05f47]">
+          <p className="ds-eyebrow">
             Printable Plan
           </p>
           <p className="mt-1 text-[#7d7268]">
@@ -30,7 +30,7 @@ export function PrintablePlan({
         <button
           type="button"
           onClick={() => window.print()}
-          className="cursor-pointer rounded-full bg-[#667154] px-5 py-3 font-semibold text-white shadow-lg shadow-[#667154]/15 transition-all hover:-translate-y-0.5 hover:bg-[#566146] hover:shadow-xl"
+          className="ds-button ds-button-primary cursor-pointer"
         >
           Print Plan
         </button>

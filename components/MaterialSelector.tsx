@@ -19,10 +19,10 @@ export function MaterialSelector({
 }: MaterialSelectorProps) {
   return (
     <fieldset>
-      <legend className="text-sm font-semibold text-[#4b4139]">
+      <legend className="text-sm font-semibold text-[var(--color-ink)]">
         Wood material
       </legend>
-      <p className="mt-1 text-xs leading-5 text-[#94887d]">
+      <p className="ds-caption mt-1">
         Material changes the shopping list labels and approximate cost range.
       </p>
 
@@ -39,8 +39,8 @@ export function MaterialSelector({
               key={option.value}
               className={`cursor-pointer rounded-xl border p-3.5 transition-all ${
                 isSelected
-                  ? "border-[#778461] bg-[#edf1e7] shadow-[0_5px_18px_rgba(91,70,49,0.08)]"
-                  : "border-[#ded4c7] bg-[#fbf8f2] hover:border-[#bbaa96] hover:bg-[#f7f1e8]"
+                  ? "border-[var(--color-brand)] bg-[var(--color-brand-soft)] shadow-[var(--shadow-sm)]"
+                  : "border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-border-strong)] hover:bg-[var(--color-canvas)]"
               }`}
             >
               <input
@@ -56,8 +56,8 @@ export function MaterialSelector({
                   aria-hidden="true"
                   className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
                     isSelected
-                      ? "border-[#667154] bg-[#667154]"
-                      : "border-[#b9ad9f] bg-white"
+                      ? "border-[var(--color-brand)] bg-[var(--color-brand)]"
+                      : "border-[var(--color-border-strong)] bg-white"
                   }`}
                 >
                   {isSelected && (
@@ -65,13 +65,13 @@ export function MaterialSelector({
                   )}
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-[#443a32]">
+                  <span className="block text-sm font-semibold text-[var(--color-ink)]">
                     {option.label}
                   </span>
-                  <span className="mt-0.5 block text-xs leading-5 text-[#7d7268]">
+                  <span className="mt-0.5 block text-xs leading-5 text-[var(--color-ink-muted)]">
                     {option.description}
                   </span>
-                  <span className="mt-1 block text-[11px] font-semibold uppercase tracking-wider text-[#a05f47]">
+                  <span className="mt-1 block text-[11px] font-semibold uppercase tracking-wider text-[var(--color-clay)]">
                     {option.priceNote}
                   </span>
                 </span>
