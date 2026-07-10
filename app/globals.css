@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f3eb;
+  --foreground: #332b25;
 }
 
 @theme inline {
@@ -12,17 +12,39 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+.editorial-title {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 400;
+}
+
+button,
+a,
+input {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.preview-grid {
+  background-color: #e8ddcc;
+  background-image:
+    linear-gradient(to bottom, transparent 71%, rgba(115, 91, 65, 0.12) 71%),
+    radial-gradient(circle at 80% 20%, rgba(255, 245, 205, 0.9), transparent 24%),
+    linear-gradient(135deg, #eee6d9, #e2d4c1);
+}
+
+.blueprint-grid {
+  background-color: #315963;
+  background-image:
+    linear-gradient(rgba(236, 244, 237, 0.11) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(236, 244, 237, 0.11) 1px, transparent 1px),
+    linear-gradient(rgba(236, 244, 237, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(236, 244, 237, 0.045) 1px, transparent 1px);
+  background-size: 40px 40px, 40px 40px, 8px 8px, 8px 8px;
 }
 
 @media print {
@@ -48,6 +70,10 @@ body {
 
   .print-hide {
     display: none !important;
+  }
+
+  .print-panel {
+    display: block !important;
   }
 
   .printable-plan {
@@ -86,8 +112,14 @@ body {
 
   .print-plan-section,
   .print-plan-row,
-  .print-plan-note {
+  .print-plan-note,
+  .print-build-steps .build-step-card {
     break-inside: avoid;
+  }
+
+  .print-build-steps .build-step-card {
+    border-color: #d4d4d4;
+    background: white;
   }
 
   .print-plan-row {

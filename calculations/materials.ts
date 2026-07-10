@@ -1,4 +1,9 @@
 import { CutPiece, HardwareItem } from "./table";
+import {
+  getMaterialProductLabel,
+  MATERIAL_PRICE_MULTIPLIERS,
+  type WoodMaterial,
+} from "./materialCatalog";
 
 const STOCK_LENGTHS_INCHES = [96, 120, 144];
 const PLANNED_WASTE_RATE = 0.15;
@@ -11,7 +16,7 @@ export interface CostRange {
 export interface ShoppingLumberItem {
   name: string;
   quantity: number;
-  material: string;
+  material: WoodMaterial;
   nominalSize: string;
   productType: "Board" | "Post";
   dimensions: string;
@@ -96,13 +101,12 @@ function getProductType(nominalSize: string): "Board" | "Post" {
 function formatProductName(
   nominalSize: string,
   stockLengthInches: number,
-  material: string
+  material: WoodMaterial
 ) {
   const compactSize = nominalSize.replaceAll(" ", "");
   const stockLengthFeet = stockLengthInches / 12;
   const productType = getProductType(nominalSize);
-  const materialName =
-    material.charAt(0).toUpperCase() + material.slice(1);
+  const materialName = getMaterialProductLabel(material);
 
   return `${compactSize}x${stockLengthFeet} ${materialName} ${productType}`;
 }
@@ -129,7 +133,8 @@ function addCostRanges(costRanges: CostRange[]): CostRange {
 
 function getLumberUnitPriceRange(
   nominalSize: string,
-  stockLengthInches: number
+  stockLengthInches: number,
+  material: WoodMaterial
 ): CostRange {
   const baseEightFootPrices: Record<string, CostRange> = {
     "2 x 4": {
@@ -150,10 +155,15 @@ function getLumberUnitPriceRange(
     maxCents: 1000,
   };
   const lengthMultiplier = stockLengthInches / 96;
+  const materialMultiplier = MATERIAL_PRICE_MULTIPLIERS[material];
 
   return {
-    minCents: Math.round(basePrice.minCents * lengthMultiplier),
-    maxCents: Math.round(basePrice.maxCents * lengthMultiplier),
+    minCents: Math.round(
+      basePrice.minCents * lengthMultiplier * materialMultiplier
+    ),
+    maxCents: Math.round(
+      basePrice.maxCents * lengthMultiplier * materialMultiplier
+    ),
   };
 }
 
@@ -254,7 +264,8 @@ export function generateShoppingList(
     const stockLengthLabel = formatFeet(stockLengthInches);
     const estimatedUnitPriceRangeCents = getLumberUnitPriceRange(
       nominalSize,
-      stockLengthInches
+      stockLengthInches,
+      firstPiece.material
     );
 
     return {

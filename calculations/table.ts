@@ -25,7 +25,7 @@ export interface CutPiece {
   thickness: number;
   width: number;
   length: number;
-  material: string;
+  material: TableInputs["wood"];
 }
 
 export interface HardwareItem {
