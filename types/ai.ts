@@ -93,3 +93,15 @@ export interface ConversationProvider {
   getNextQuestion(profile: DesignProfile, answers: DesignAnswers): DesignQuestion | null;
   resolveProfile(profile: DesignProfile): Promise<GuidedDesignResolution>;
 }
+
+export type GuidanceMode = "ai-enhanced" | "deterministic-fallback";
+
+export interface ProviderConversationResponse {
+  requestId: string;
+  mode: GuidanceMode;
+  profile: DesignProfile;
+  nextQuestion: DesignQuestion | null;
+  resolution: GuidedDesignResolution | null;
+  explanation: string;
+  fallbackReason?: "missing-key" | "timeout" | "invalid-response" | "provider-error";
+}
