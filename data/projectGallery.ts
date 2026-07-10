@@ -33,3 +33,10 @@ export const OUTDOOR_TABLE_GALLERY_ITEMS: ProjectGalleryItem[] = [
     view: "blueprint",
   },
 ];
+
+export const OUTDOOR_BENCH_GALLERY_ITEMS: ProjectGalleryItem[] = [
+  { id: "lifestyle", label: "Lifestyle view", description: "See the bench in a warm outdoor setting.", view: "lifestyle" },
+  { id: "front", label: "Front angle", description: "Review length, seat height, apron, and leg placement.", view: "front" },
+  { id: "side", label: "Side angle", description: "Check seat depth and side-frame proportions.", view: "side" },
+  { id: "blueprint", label: "Blueprint view", description: "Inspect live bench dimensions on a technical grid.", view: "blueprint" },
+];

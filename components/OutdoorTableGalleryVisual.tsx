@@ -4,6 +4,8 @@ import {
 } from "@/calculations/materialCatalog";
 import type { GalleryView } from "@/data/projectGallery";
 import { TABLE_WOOD_COLORS, TablePreview } from "@/components/TablePreview";
+import { ProjectImage } from "@/components/ProjectImage";
+import { getProject } from "@/data/projects";
 
 interface OutdoorTableGalleryVisualProps {
   view: GalleryView;
@@ -22,7 +24,11 @@ export function OutdoorTableGalleryVisual({
   wood,
   thumbnail = false,
 }: OutdoorTableGalleryVisualProps) {
-  if (view === "lifestyle" || view === "blueprint") {
+  const project = getProject("outdoor-table");
+  if (view === "lifestyle" && project) {
+    return <ProjectImage asset={project.images.lifestyleHero} sizes={thumbnail ? "25vw" : "100vw"} className={thumbnail ? "h-full" : "aspect-[16/9] min-h-[24rem]"} />;
+  }
+  if (view === "blueprint") {
     return (
       <TablePreview
         length={length}

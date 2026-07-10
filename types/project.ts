@@ -1,16 +1,38 @@
-export type ProjectCategory =
-  | "outdoor-furniture"
-  | "garage"
-  | "garden"
-  | "home";
+export type CatalogCategory = "Outdoor" | "Indoor" | "Garage" | "Garden" | "Storage";
+export type CatalogProjectId =
+  | "outdoor-table"
+  | "outdoor-bench"
+  | "raised-garden-bed"
+  | "garage-workbench"
+  | "outdoor-sectional"
+  | "console-table";
 
-export type ProjectType =
-  | "outdoor-table";
+export type ProjectImageRole =
+  | "lifestyleHero"
+  | "alternateLifestyle"
+  | "frontView"
+  | "sideView"
+  | "blueprintPreview"
+  | "cardThumbnail";
 
-export interface ProjectTemplate {
-  id: ProjectType;
+export interface ProjectImageAsset {
+  src: string;
+  alt: string;
+  placeholder: boolean;
+  replacementLabel: string;
+}
+
+export type ProjectImages = Record<ProjectImageRole, ProjectImageAsset>;
+
+export interface ProjectCatalogItem {
+  id: CatalogProjectId;
   name: string;
-  category: ProjectCategory;
   description: string;
-  isAvailable: boolean;
+  category: CatalogCategory;
+  cost: string;
+  buildTime: string;
+  difficulty: string;
+  available: boolean;
+  href: string;
+  images: ProjectImages;
 }

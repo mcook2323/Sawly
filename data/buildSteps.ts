@@ -2,10 +2,34 @@ import {
   getMaterialLabel,
   type WoodMaterial,
 } from "@/calculations/materialCatalog";
+import type { GeneratedBenchPlan } from "@/calculations/bench";
+import type { GeneratedTablePlan } from "@/calculations/table";
 
 export interface BuildStepNote {
   type: "tip" | "caution";
   text: string;
+}
+
+export function getOutdoorBenchBuildSteps(plan: GeneratedBenchPlan): BuildStep[] {
+  const material = getMaterialLabel(plan.material);
+  const part = (name: string) => plan.cutList.find((piece) => piece.name === name)!;
+  const leg = part("Leg");
+  const longApron = part("Long Apron");
+  const shortApron = part("Short Apron");
+  const seat = part("Seat Board");
+  const finishing = getFinishingGuidance(plan.material);
+  return [
+    { number: 1, title: "Inspect and organize the lumber", instructions: `Lay out the ${material.toLowerCase()} and reject badly twisted, split, or damaged boards. Group the best faces for the seat.`, parts: ["Shopping list lumber", "Tape measure", "Pencil"], note: { type: "tip", text: "Mark every piece with its cut-list name before cutting." } },
+    { number: 2, title: "Verify the configured measurements", instructions: `Confirm the finished bench will be ${plan.inputs.length}\" long, ${plan.inputs.depth}\" deep, and ${plan.inputs.seatHeight}\" high. Compare actual lumber dimensions with the plan.`, parts: ["Generated plan", "Tape measure", "Speed square"], note: { type: "caution", text: "Nominal lumber sizes may differ from actual dimensions; measure the boards you purchased." } },
+    { number: 3, title: "Cut and label every part", instructions: `Cut 4 legs to ${leg.length}\", 2 long aprons to ${longApron.length}\", 2 short aprons to ${shortApron.length}\", and ${seat.quantity} seat boards to ${seat.length}\".`, parts: ["Legs", "Long Aprons", "Short Aprons", "Seat Boards"], note: { type: "caution", text: "Support long stock and wear eye and hearing protection." } },
+    { number: 4, title: "Assemble the two end frames", instructions: `Position one ${shortApron.length}\" short apron between each pair of legs. Keep the apron tops aligned, apply exterior glue, clamp, and fasten with exterior screws.`, parts: ["4 Legs", "2 Short Aprons", "Exterior Wood Glue", "Exterior Screws"] },
+    { number: 5, title: "Join the end frames", instructions: `Connect the end frames with the two ${longApron.length}\" long aprons. Clamp on a flat surface and drive the specified exterior screws only after the top edges are flush.`, parts: ["2 End Frames", "2 Long Aprons", "Exterior Wood Glue", "Exterior Screws"] },
+    { number: 6, title: "Square and verify the frame", instructions: "Measure both frame diagonals and adjust until they match. Check that all four legs sit flat before the glue cures.", parts: ["Bench Frame", "Tape Measure", "Clamps"], note: { type: "caution", text: "Do not install the seat on a racked or rocking frame." } },
+    { number: 7, title: "Install the seat boards", instructions: `Arrange all ${seat.quantity} seat boards with even drainage gaps and flush ends. Pre-drill where needed, then fasten each board into the apron frame.`, parts: [`${seat.quantity} Seat Boards`, "Exterior Screws", "Equal Spacers"], note: { type: "tip", text: "Use identical spacers to keep the slat layout consistent." } },
+    { number: 8, title: "Sand and ease exposed edges", instructions: "Sand the seat, frame, legs, cut ends, and corners. Remove splinters and sharp edges without rounding fitted joints excessively.", parts: ["Assembled Bench", "Sandpaper or Sander"], note: { type: "caution", text: "Wear suitable dust protection and remove dust before finishing." } },
+    { number: 9, title: "Apply an outdoor finish", instructions: finishing.instructions, parts: [`${material} Bench`, "Exterior-rated Finish"], note: finishing.note },
+    { number: 10, title: "Complete the stability and safety check", instructions: "After the finish cures, place the bench on a level surface. Check for rocking, loose fasteners, sharp edges, or movement before sitting on it.", parts: ["Finished Bench", "Driver for Final Adjustments"], note: { type: "caution", text: "This DIY plan is not structural engineering certification; use appropriate judgment and stop using a bench that loosens or moves." } },
+  ];
 }
 
 export interface BuildStep {
@@ -50,10 +74,15 @@ function getFinishingGuidance(material: WoodMaterial) {
 }
 
 export function getOutdoorTableBuildSteps(
-  material: WoodMaterial
+  plan: GeneratedTablePlan
 ): BuildStep[] {
-  const materialLabel = getMaterialLabel(material);
-  const finishing = getFinishingGuidance(material);
+  const materialLabel = getMaterialLabel(plan.material);
+  const finishing = getFinishingGuidance(plan.material);
+  const part = (name: string) => plan.cutList.find((piece) => piece.name === name)!;
+  const leg = part("Leg");
+  const longApron = part("Long Apron");
+  const shortApron = part("Short Apron");
+  const tabletop = part("Tabletop Board");
 
   return [
     {
@@ -69,8 +98,7 @@ export function getOutdoorTableBuildSteps(
     {
       number: 2,
       title: "Review measurements and verify the plan",
-      instructions:
-        "Compare the generated dimensions with your space and actual lumber. Mark each planned cut clearly before turning on a saw.",
+      instructions: `Confirm the finished table will be ${plan.inputs.length}\" long, ${plan.inputs.width}\" wide, and ${plan.inputs.height}\" high. Compare actual lumber dimensions with the plan.`,
       parts: ["Generated cut list", "Tape measure", "Speed square", "Pencil"],
       note: {
         type: "caution",
@@ -80,8 +108,7 @@ export function getOutdoorTableBuildSteps(
     {
       number: 3,
       title: "Cut the legs, aprons, and tabletop boards",
-      instructions:
-        "Cut all four legs, both long aprons, both short aprons, and the tabletop boards to the finished lengths in the cut list. Label each piece as you finish it.",
+      instructions: `Cut 4 legs to ${leg.length}\", 2 long aprons to ${longApron.length}\", 2 short aprons to ${shortApron.length}\", and ${tabletop.quantity} tabletop boards to ${tabletop.length}\". Label each piece.`,
       parts: ["Legs", "Long aprons", "Short aprons", "Tabletop boards"],
       note: {
         type: "caution",
@@ -91,8 +118,7 @@ export function getOutdoorTableBuildSteps(
     {
       number: 4,
       title: "Assemble the leg and apron frame",
-      instructions:
-        "On a flat surface, attach the long and short aprons between the legs. Apply exterior wood glue at each joint, clamp the pieces, then drive the exterior screws.",
+      instructions: `On a flat surface, attach the ${shortApron.length}\" short aprons and ${longApron.length}\" long aprons between the legs. Align the apron tops, apply exterior glue, clamp, then drive exterior screws.`,
       parts: ["4 legs", "2 long aprons", "2 short aprons", "Exterior screws", "Exterior wood glue"],
       note: {
         type: "tip",
@@ -113,8 +139,7 @@ export function getOutdoorTableBuildSteps(
     {
       number: 6,
       title: "Install the tabletop boards",
-      instructions:
-        "Arrange the tabletop boards with their best faces up. Keep the ends flush, maintain even spacing, and fasten each board securely to the apron frame.",
+      instructions: `Arrange all ${tabletop.quantity} tabletop boards with their best faces up. Keep the ${tabletop.length}\" ends flush, maintain even drainage spacing, and fasten each board to the apron frame.`,
       parts: ["Tabletop boards", "Squared frame", "Exterior screws"],
       note: {
         type: "tip",

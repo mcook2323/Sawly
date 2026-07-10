@@ -1,17 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { getOutdoorTableBuildSteps } from "@/data/buildSteps";
 import type { ShoppingList } from "@/calculations/materials";
-import type { GeneratedTablePlan } from "@/calculations/table";
+import type { GeneratedProjectPlan } from "@/calculations/projectPlan";
+import type { BuildStep } from "@/data/buildSteps";
 import { BuildStepsPanel } from "@/components/BuildStepsPanel";
 import { CutListPanel } from "@/components/CutListPanel";
 import { PrintablePlan } from "@/components/PrintablePlan";
 import { ShoppingListPanel } from "@/components/ShoppingListPanel";
 
 interface PlanTabsProps {
-  plan: GeneratedTablePlan;
+  plan: GeneratedProjectPlan;
   shoppingList: ShoppingList;
+  buildSteps: BuildStep[];
 }
 
 const TABS = [
@@ -23,9 +24,8 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]["id"];
 
-export function PlanTabs({ plan, shoppingList }: PlanTabsProps) {
+export function PlanTabs({ plan, shoppingList, buildSteps }: PlanTabsProps) {
   const [activeTab, setActiveTab] = useState<TabId>("shopping");
-  const buildSteps = getOutdoorTableBuildSteps(plan.inputs.wood);
 
   function selectAdjacentTab(
     event: React.KeyboardEvent<HTMLButtonElement>,

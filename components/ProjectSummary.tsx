@@ -5,6 +5,7 @@ interface ProjectSummaryProps {
   estimatedCostRange: CostRange | null;
   isReady: boolean;
   materialLabel: string;
+  details?: Array<{ label: string; value: string }>;
 }
 
 function formatCurrency(cents: number) {
@@ -23,6 +24,7 @@ export function ProjectSummary({
   estimatedCostRange,
   isReady,
   materialLabel,
+  details = PROJECT_DETAILS,
 }: ProjectSummaryProps) {
   const cost = estimatedCostRange
     ? `${formatCurrency(estimatedCostRange.minCents)}–${formatCurrency(
@@ -72,7 +74,7 @@ export function ProjectSummary({
           </dt>
           <dd className="mt-2 text-lg font-semibold text-[#8d543e]">{cost}</dd>
         </div>
-        {PROJECT_DETAILS.map((detail) => (
+        {details.map((detail) => (
           <div key={detail.label}>
             <dt className="text-xs font-medium uppercase tracking-wider text-[#998d82]">
               {detail.label}

@@ -1,8 +1,8 @@
-import type { GeneratedTablePlan } from "@/calculations/table";
+import type { GeneratedProjectPlan } from "@/calculations/projectPlan";
 import { getMaterialLabel } from "@/calculations/materialCatalog";
 
 interface CutListPanelProps {
-  plan: GeneratedTablePlan;
+  plan: GeneratedProjectPlan;
 }
 
 export function CutListPanel({ plan }: CutListPanelProps) {

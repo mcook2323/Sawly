@@ -1,3 +1,10 @@
+import type { WoodMaterial } from "./materialCatalog";
+import type {
+  CutPiece,
+  GeneratedProjectPlan,
+  HardwareItem,
+} from "./projectPlan";
+
 const LEG_SIZE = 3.5;
 
 const TOP_THICKNESS = 1.5;
@@ -15,34 +22,41 @@ export interface TableInputs {
   length: number; // inches
   width: number; // inches
   height: number; // inches
-  wood: "pine" | "cedar" | "treated";
+  wood: WoodMaterial;
   style: "modern" | "farmhouse";
 }
 
-export interface CutPiece {
-  name: string;
-  quantity: number;
-  thickness: number;
-  width: number;
-  length: number;
-  material: TableInputs["wood"];
-}
-
-export interface HardwareItem {
-  name: string;
-  quantity: number;
-}
-
-export interface GeneratedTablePlan {
+export interface GeneratedTablePlan extends GeneratedProjectPlan {
   projectName: string;
   inputs: TableInputs;
-  cutList: CutPiece[];
-  hardware: HardwareItem[];
+}
+
+export const TABLE_DIMENSION_LIMITS = {
+  length: { min: 36, max: 144 },
+  width: { min: 24, max: 60 },
+  height: { min: 18, max: 42 },
+} as const;
+
+export function validateTableInputs(inputs: TableInputs) {
+  return (
+    Number.isFinite(inputs.length) &&
+    inputs.length >= TABLE_DIMENSION_LIMITS.length.min &&
+    inputs.length <= TABLE_DIMENSION_LIMITS.length.max &&
+    Number.isFinite(inputs.width) &&
+    inputs.width >= TABLE_DIMENSION_LIMITS.width.min &&
+    inputs.width <= TABLE_DIMENSION_LIMITS.width.max &&
+    Number.isFinite(inputs.height) &&
+    inputs.height >= TABLE_DIMENSION_LIMITS.height.min &&
+    inputs.height <= TABLE_DIMENSION_LIMITS.height.max
+  );
 }
 
 export function generateTablePlan(
   inputs: TableInputs
 ): GeneratedTablePlan {
+  if (!validateTableInputs(inputs)) {
+    throw new RangeError("Outdoor Table dimensions are outside the supported range.");
+  }
   const legLength = inputs.height - TOP_THICKNESS;
 
   const longApronLength = inputs.length - APRON_OFFSET;
@@ -53,7 +67,14 @@ export function generateTablePlan(
   );
 
   return {
+    projectType: "outdoor-table",
     projectName: "Outdoor Table",
+    material: inputs.wood,
+    dimensions: [
+      { label: "Length", value: inputs.length, unit: "in" },
+      { label: "Width", value: inputs.width, unit: "in" },
+      { label: "Height", value: inputs.height, unit: "in" },
+    ],
 
     inputs,
 
@@ -108,3 +129,5 @@ export function generateTablePlan(
     ],
   };
 }
+
+export type { CutPiece, HardwareItem };

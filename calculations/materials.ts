@@ -1,4 +1,4 @@
-import { CutPiece, HardwareItem } from "./table";
+import type { CutPiece, HardwareItem } from "./projectPlan";
 import {
   getMaterialProductLabel,
   MATERIAL_PRICE_MULTIPLIERS,
@@ -188,7 +188,7 @@ function getHardwareUnitPriceRange(name: string): CostRange {
   };
 }
 
-function chooseStockLength(requiredLength: number, totalCutLength: number) {
+export function chooseStockLength(requiredLength: number, totalCutLength: number) {
   const usableStockLengths = STOCK_LENGTHS_INCHES.filter(
     (stockLength) => stockLength >= requiredLength
   );

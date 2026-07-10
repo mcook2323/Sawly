@@ -1,6 +1,4 @@
-import type { TableInputs } from "./table";
-
-export type WoodMaterial = TableInputs["wood"];
+export type WoodMaterial = "pine" | "cedar" | "treated";
 
 export interface MaterialOption {
   value: WoodMaterial;

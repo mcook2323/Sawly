@@ -1,11 +1,11 @@
 import type { ShoppingList } from "@/calculations/materials";
-import type { GeneratedTablePlan } from "@/calculations/table";
+import type { GeneratedProjectPlan } from "@/calculations/projectPlan";
 import { getMaterialLabel } from "@/calculations/materialCatalog";
 import type { BuildStep } from "@/data/buildSteps";
 import { BuildStepsPanel } from "@/components/BuildStepsPanel";
 
 interface PrintablePlanProps {
-  plan: GeneratedTablePlan;
+  plan: GeneratedProjectPlan;
   shoppingList: ShoppingList;
   buildSteps: BuildStep[];
 }
@@ -43,8 +43,7 @@ export function PrintablePlan({
           </p>
           <h2 className="editorial-title mt-2 text-4xl">{plan.projectName}</h2>
           <p className="mt-2 text-[#7d7268]">
-            {plan.inputs.length}&quot; L × {plan.inputs.width}&quot; W ×{" "}
-            {plan.inputs.height}&quot; H · {getMaterialLabel(plan.inputs.wood)}
+            {plan.dimensions.map((dimension) => `${dimension.label}: ${dimension.value}\"`).join(" · ")} · {getMaterialLabel(plan.material)}
           </p>
         </header>
 
@@ -119,10 +118,7 @@ export function PrintablePlan({
         <aside className="print-plan-note mt-8 rounded-xl border border-[#c7d0ba] bg-[#edf1e7] p-4">
           <h3 className="font-bold">Verify before cutting</h3>
           <p className="mt-1 text-sm text-[#66705b]">
-            Confirm all measurements against your actual materials before
-            making cuts. Wear appropriate eye and hearing protection, secure
-            each workpiece, and follow the manufacturer instructions for your
-            tools.
+            Verify every measurement before cutting. Nominal and actual lumber dimensions may differ. Pricing is approximate. You are responsible for safe tool usage and appropriate structural judgment; this plan is not structural engineering certification.
           </p>
         </aside>
 
