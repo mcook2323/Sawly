@@ -3,6 +3,9 @@ import test from "node:test";
 import { BENCH_DIMENSION_LIMITS, generateBenchPlan, validateBenchInputs } from "../calculations/bench";
 import { chooseStockLength, generateShoppingList } from "../calculations/materials";
 import { generateTablePlan, TABLE_DIMENSION_LIMITS, validateTableInputs } from "../calculations/table";
+import { matchProjectTemplate } from "../lib/ai/matcher";
+import { parseDesignRequest } from "../lib/ai/parser";
+import { readSavedDesignRequests, saveDesignRequest, SAVED_DESIGN_REQUESTS_KEY } from "../lib/ai/savedRequests";
 
 test("Outdoor Table accepts exact boundaries and rejects invalid dimensions", () => {
   for (const length of [TABLE_DIMENSION_LIMITS.length.min, TABLE_DIMENSION_LIMITS.length.max]) {
@@ -52,4 +55,32 @@ test("shopping totals and waste equal their line-item calculations", () => {
   const cut = list.lumber.reduce((sum, item) => sum + item.totalCutLengthInches, 0);
   const purchased = list.lumber.reduce((sum, item) => sum + item.quantity * item.stockLengthInches, 0);
   assert.equal(list.estimatedWastePercent, Math.round(((purchased - cut) / cut) * 100));
+});
+
+test("design parser extracts deterministic project details", () => {
+  const request = parseDesignRequest("84 inch cedar modern outdoor table for 8");
+  assert.equal(request.projectType, "table");
+  assert.equal(request.material, "cedar");
+  assert.equal(request.dimensions.length, 84);
+  assert.equal(request.style, "modern");
+  assert.equal(request.capacity, 8);
+});
+
+test("design matcher selects supported templates and rejects unsupported ideas", () => {
+  const match = matchProjectTemplate(parseDesignRequest("Large cedar patio table"));
+  assert.equal(match?.projectId, "outdoor-table");
+  assert.equal(match?.prefill.material, "cedar");
+  assert.equal(matchProjectTemplate(parseDesignRequest("Outdoor kitchen with a grill")), null);
+});
+
+test("saved design requests persist once, deduplicate, and tolerate corrupted storage", () => {
+  const values = new Map<string, string>();
+  Object.defineProperty(globalThis, "window", { configurable: true, value: { localStorage: { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value) } } });
+  const parsed = parseDesignRequest("Outdoor kitchen with a grill");
+  assert.equal(saveDesignRequest({ prompt: parsed.raw, parsed }).created, true);
+  assert.equal(saveDesignRequest({ prompt: "  outdoor KITCHEN with a grill ", parsed }).created, false);
+  assert.equal(readSavedDesignRequests().length, 1);
+  values.set(SAVED_DESIGN_REQUESTS_KEY, "{broken");
+  assert.deepEqual(readSavedDesignRequests(), []);
+  delete (globalThis as { window?: unknown }).window;
 });

@@ -30,13 +30,17 @@ export default function OutdoorTablePage() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const id = new URLSearchParams(window.location.search).get("saved");
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get("saved");
       const saved = id ? readSavedProjects().find((item) => item.id === id && item.projectType === "outdoor-table") : null;
-      if (!saved) return;
-      setLengthInput(String(saved.dimensions.length));
-      setWidthInput(String(saved.dimensions.width));
-      setHeightInput(String(saved.dimensions.height));
-      setWood(saved.material);
+      if (saved) {
+        setLengthInput(String(saved.dimensions.length)); setWidthInput(String(saved.dimensions.width)); setHeightInput(String(saved.dimensions.height)); setWood(saved.material); return;
+      }
+      const material = params.get("material");
+      if (params.get("length")) setLengthInput(params.get("length")!);
+      if (params.get("width")) setWidthInput(params.get("width")!);
+      if (params.get("height")) setHeightInput(params.get("height")!);
+      if (material === "pine" || material === "cedar" || material === "treated") setWood(material);
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);

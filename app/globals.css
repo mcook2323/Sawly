@@ -115,6 +115,24 @@ html { scroll-behavior: smooth; scroll-padding-top: 5rem; }
 .page-enter { animation: page-enter 420ms var(--transition-smooth) both; }
 
 @keyframes page-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.ai-hero {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 15% 10%, color-mix(in srgb, var(--color-clay-soft) 72%, transparent), transparent 28rem),
+    radial-gradient(circle at 88% 30%, color-mix(in srgb, var(--color-brand-soft) 78%, transparent), transparent 30rem),
+    var(--color-canvas);
+}
+
+.ai-prompt-shell {
+  border: 1px solid color-mix(in srgb, var(--color-border-strong) 72%, white);
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--color-surface) 94%, transparent);
+  padding: clamp(1.25rem, 3vw, 2rem);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(16px);
+}
 @keyframes skeleton-shimmer { to { background-position-x: -200%; } }
 
 @media (prefers-reduced-motion: reduce) {

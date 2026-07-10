@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ProjectImage } from "@/components/ProjectImage";
+import { AIDesignPrompt } from "@/components/AIDesignPrompt";
 import { BrandLogo } from "@/components/BrandLogo";
 import { SiteFooter } from "@/components/SiteFooter";
 import { TrackedProjectLink } from "@/components/TrackedProjectLink";
@@ -10,7 +11,9 @@ import { buttonClassName, Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/Input";
 import { SavedProjectsPanel } from "@/components/SavedProjectsPanel";
+import { SavedIdeasPanel } from "@/components/SavedIdeasPanel";
 import { useSavedProjects } from "@/hooks/useSavedProjects";
+import { useSavedDesignRequests } from "@/hooks/useSavedDesignRequests";
 import { projects } from "@/data/projects";
 import type { CatalogCategory } from "@/types/project";
 
@@ -22,6 +25,7 @@ export default function Home() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<(typeof categories)[number]>("All");
   const saved = useSavedProjects();
+  const savedIdeas = useSavedDesignRequests();
   const filteredProjects = useMemo(() => {
     const term = query.trim().toLowerCase();
     return projects.filter((project) => {
@@ -43,7 +47,7 @@ export default function Home() {
           <BrandLogo />
           <nav className="flex items-center gap-4 text-sm font-semibold text-[var(--color-ink-muted)] sm:gap-6" aria-label="Homepage">
             <a href="#catalog" className="transition-colors hover:text-[var(--color-brand)]">Projects</a>
-            {saved.projects.length > 0 && <a href="#saved-projects" className="hidden transition-colors hover:text-[var(--color-brand)] sm:inline">Saved Projects</a>}
+            {(saved.projects.length > 0 || savedIdeas.ideas.length > 0) && <a href={saved.projects.length > 0 ? "#saved-projects" : "#saved-ideas"} className="hidden transition-colors hover:text-[var(--color-brand)] sm:inline">Saved</a>}
             <a href="#how-it-works" className="hidden transition-colors hover:text-[var(--color-brand)] md:inline">How It Works</a>
             <Button type="button" variant="secondary" onClick={focusSearch} aria-label="Go to project search" className="h-10 min-h-0 w-10 p-0">
               <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current stroke-2"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
@@ -52,25 +56,20 @@ export default function Home() {
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-7xl gap-10 px-5 py-12 sm:px-6 sm:py-20 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:gap-16 lg:px-8">
-        <div>
-          <p className="ds-eyebrow">Plans made for your space</p>
-          <h1 className="ds-display mt-5">Build with confidence. Make it yours.</h1>
-          <p className="ds-body mt-6 max-w-xl text-lg">Customize approachable DIY projects, then take a clear materials list, cut plan, and step-by-step guide into the shop.</p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <a href="#catalog" className={buttonClassName("primary")}>Browse Projects</a>
-            <a href="#how-it-works" className={buttonClassName("secondary")}>How It Works</a>
-          </div>
+      <section className="ai-hero px-5 py-14 sm:px-6 sm:py-24 lg:px-8">
+        <div className="mx-auto max-w-5xl text-center">
+          <p className="ds-eyebrow">A clearer way from idea to build</p>
+          <h1 className="ds-display mx-auto mt-5 max-w-4xl">Design what fits your home.</h1>
+          <p className="ds-body mx-auto mt-6 max-w-2xl text-lg">Describe what you want to make. Sawly will organize the idea and connect it to a practical, customizable project when a verified template exists.</p>
+          <div className="mt-10 text-left"><AIDesignPrompt /></div>
         </div>
-        {featured && (
-          <div className="relative">
-            <ProjectImage asset={featured.images.lifestyleHero} sizes="(min-width: 1024px) 52vw, 100vw" priority className="aspect-[4/3] rounded-[2rem] shadow-[0_30px_80px_rgba(85,67,48,0.18)]" />
-            <div className="absolute bottom-5 left-5 rounded-xl bg-[#fffdf9]/90 p-4 backdrop-blur">
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#a05f47]">Featured</p>
-              <p className="editorial-title mt-1 text-2xl">{featured.name}</p>
-            </div>
-          </div>
-        )}
+        {featured && <div className="pointer-events-none absolute right-[4%] top-16 hidden w-56 rotate-3 opacity-20 xl:block"><ProjectImage asset={featured.images.cardThumbnail} sizes="224px" priority className="aspect-[4/3] rounded-[var(--radius-xl)]" /></div>}
+      </section>
+
+      <section className="border-y border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-10 sm:px-6 lg:px-8">
+        <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-3">
+          {[{ eyebrow: "Describe", title: "Start with an idea", text: "Use everyday language to describe the project, size, material, or style.", href: "#design-prompt" }, { eyebrow: "Search", title: "Find a known project", text: "Search the current collection by title, description, or category.", href: "#catalog-search" }, { eyebrow: "Browse", title: "Explore the collection", text: "Compare available templates and projects planned for later.", href: "#catalog" }].map((path) => <a key={path.eyebrow} href={path.href} className="ds-card ds-card-interactive p-6"><span className="ds-eyebrow">{path.eyebrow}</span><h2 className="ds-subheading mt-3">{path.title}</h2><p className="ds-body mt-2">{path.text}</p></a>)}
+        </div>
       </section>
 
       <section id="how-it-works" className="border-y border-[#e6ddd1] bg-[#fffdf9] px-5 py-14 sm:px-6 sm:py-20 lg:px-8">
@@ -96,6 +95,7 @@ export default function Home() {
       </section>
 
       <SavedProjectsPanel projects={saved.projects} onDelete={saved.deleteProject} />
+      <SavedIdeasPanel ideas={savedIdeas.ideas} onDelete={savedIdeas.deleteIdea} />
 
       <section id="catalog" className="border-t border-[#e6ddd1] bg-[#f2ece3] px-5 py-16 sm:px-6 sm:py-24 lg:px-8">
         <div className="mx-auto max-w-7xl">

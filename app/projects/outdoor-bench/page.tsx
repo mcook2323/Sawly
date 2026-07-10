@@ -29,10 +29,15 @@ export default function OutdoorBenchPage() {
   const [wood, setWood] = useState<WoodMaterial>("pine");
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const id = new URLSearchParams(window.location.search).get("saved");
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get("saved");
       const saved = id ? readSavedProjects().find((item) => item.id === id && item.projectType === "outdoor-bench") : null;
-      if (!saved) return;
-      setLength(String(saved.dimensions.length)); setDepth(String(saved.dimensions.depth)); setSeatHeight(String(saved.dimensions.seatHeight)); setWood(saved.material);
+      if (saved) { setLength(String(saved.dimensions.length)); setDepth(String(saved.dimensions.depth)); setSeatHeight(String(saved.dimensions.seatHeight)); setWood(saved.material); return; }
+      const material = params.get("material");
+      if (params.get("length")) setLength(params.get("length")!);
+      if (params.get("depth")) setDepth(params.get("depth")!);
+      if (params.get("seatHeight")) setSeatHeight(params.get("seatHeight")!);
+      if (material === "pine" || material === "cedar" || material === "treated") setWood(material);
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
