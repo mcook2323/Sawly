@@ -1,6 +1,8 @@
 import { matchProjectTemplate } from "@/lib/ai/matcher";
 import { parseDesignRequest } from "@/lib/ai/parser";
-import type { DesignProvider, DesignResolution } from "@/types/ai";
+import { getNextQuestion } from "@/lib/ai/conversation";
+import { scoreDesignProfile } from "@/lib/ai/guidedMatcher";
+import type { ConversationProvider, DesignAnswers, DesignProfile, DesignProvider, DesignResolution } from "@/types/ai";
 
 export function resolveDesignRequest(prompt: string): DesignResolution {
   const request = parseDesignRequest(prompt);
@@ -13,4 +15,12 @@ export function resolveDesignRequest(prompt: string): DesignResolution {
 export class DeterministicDesignProvider implements DesignProvider {
   readonly id = "deterministic-v1";
   async resolve(prompt: string) { return resolveDesignRequest(prompt); }
+}
+
+// Future LLM providers can implement this contract and return the same typed
+// questions and resolution consumed by the conversational frontend.
+export class DeterministicConversationProvider implements ConversationProvider {
+  readonly id = "deterministic-conversation-v1";
+  getNextQuestion(profile: DesignProfile, answers: DesignAnswers) { return getNextQuestion(profile, answers); }
+  async resolveProfile(profile: DesignProfile) { return scoreDesignProfile(profile); }
 }
