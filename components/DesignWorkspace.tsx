@@ -15,6 +15,10 @@ import { scoreDesignProfile } from "@/lib/ai/guidedMatcher";
 import { parseDesignRequest } from "@/lib/ai/parser";
 import { buildDesignProfile } from "@/lib/ai/profile";
 import { saveDesignRequest } from "@/lib/ai/savedRequests";
+import { storeConceptWorkspace } from "@/lib/concepts/browserStorage";
+import { requestCustomConcepts } from "@/lib/concepts/clientGeneration";
+import { classifyDesignProfile } from "@/lib/ai/requestRouting";
+import { CustomConceptEntry } from "@/components/CustomConceptEntry";
 import { normalizePrompt } from "@/lib/ai/savedRequests";
 import { decideConversationSubmission, readConversationSnapshots, removeConversationSnapshot, restartAllowed, writeConversationSnapshot, type ConversationSnapshot } from "@/lib/ai/conversationSession";
 import type { DesignAnswers, DesignAnswerValue, DesignProfile, DesignQuestion, DesignQuestionId, GuidanceMode, GuidedDesignResolution, ProviderConversationResponse, RankedTemplateMatch } from "@/types/ai";
@@ -56,13 +60,16 @@ export function DesignWorkspace({ initialPrompt }: { initialPrompt: string }) {
   const [thinking, setThinking] = useState(false);
   const [providerError, setProviderError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [conceptGenerating, setConceptGenerating] = useState(false);
+  const [conceptError, setConceptError] = useState<string | null>(null);
   const request = useMemo(() => parseDesignRequest(activePrompt), [activePrompt]);
   const profile = useMemo(() => buildDesignProfile(request, answers), [request, answers]);
+  const requestRoute = classifyDesignProfile(profile);
   const pending = getConversationQuestions(profile, answers);
   const editingAnswers = editing ? withoutAnswer(answers, editing) : answers;
   const editingQuestion = editing ? getConversationQuestions(buildDesignProfile(request, editingAnswers), editingAnswers).find((question) => question.id === editing) : null;
   const localQuestion = pending[0] ?? null;
-  const question = editingQuestion ?? (remoteQuestion !== undefined ? remoteQuestion : localQuestion);
+  const question = requestRoute === "custom-concept" ? null : editingQuestion ?? (remoteQuestion !== undefined ? remoteQuestion : localQuestion);
   const complete = !question;
   const effectiveProfile = remoteProfile ?? profile;
   const resolution = complete ? remoteResolution ?? scoreDesignProfile(effectiveProfile) : null;
@@ -83,7 +90,7 @@ export function DesignWorkspace({ initialPrompt }: { initialPrompt: string }) {
   }, [activePrompt, answerOrder, answers, complete, hydrated]);
 
   useEffect(() => {
-    if (!hydrated || !activePrompt || editing) return;
+    if (!hydrated || !activePrompt || editing || requestRoute === "custom-concept") return;
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
       setThinking(true); setProviderError(null);
@@ -98,7 +105,7 @@ export function DesignWorkspace({ initialPrompt }: { initialPrompt: string }) {
       finally { if (!controller.signal.aborted) setThinking(false); }
     }, 120);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [activePrompt, answers, editing, hydrated, profile, retryCount]);
+  }, [activePrompt, answers, editing, hydrated, profile, requestRoute, retryCount]);
 
   function answer(value: DesignAnswerValue) {
     if (!question) return;
@@ -127,6 +134,22 @@ export function DesignWorkspace({ initialPrompt }: { initialPrompt: string }) {
     removeConversationSnapshot(activePrompt); setAnswers({}); setAnswerOrder([]); setEditing(null); setSaved(false); setRemoteQuestion(undefined); setRemoteProfile(null); setRemoteResolution(null);
   }
 
+  async function generateCustomConcepts() {
+    if (conceptGenerating) return; setConceptGenerating(true); setConceptError(null);
+    try { let session = sessionStorage.getItem("sawly.browser-session"); if (!session) { session=crypto.randomUUID();sessionStorage.setItem("sawly.browser-session",session); } const {projectType,projectTypeExplicitlyOther,environment,dimensions,capacity,budget,material,style,intendedUse,keywords,completeness}=effectiveProfile; await requestCustomConcepts({prompt:activePrompt,profile:{projectType,projectTypeExplicitlyOther,environment,dimensions,capacity,budget,material,style,intendedUse,keywords,completeness},sessionId:session},{store:storeConceptWorkspace,navigate:(href)=>router.push(href)}); }
+    catch(error) { setConceptError(error instanceof Error&&error.message?error.message:"Custom concept generation is temporarily unavailable."); }
+    finally { setConceptGenerating(false); }
+  }
+
+  function saveCurrentIdea() {
+    saveDesignRequest({ prompt: request.raw, parsed: request, designProfile: effectiveProfile });
+    setSaved(true);
+  }
+
+  function editRequest() {
+    document.querySelector<HTMLTextAreaElement>("#design-prompt-compact")?.focus();
+  }
+
   return <main className="page-enter min-h-screen bg-[var(--color-canvas)] text-[var(--color-ink)]">
     <header className="border-b border-[var(--color-border)] bg-[var(--color-surface)]"><div className="ds-container flex items-center justify-between py-4"><BrandLogo /><Link href="/#catalog" className={buttonClassName("ghost")}>Browse projects</Link></div></header>
     <section className="ds-container ds-section">
@@ -137,18 +160,18 @@ export function DesignWorkspace({ initialPrompt }: { initialPrompt: string }) {
           {answerOrder.length > 0 && <div className="mt-4 space-y-2" aria-label="Conversation history">{answerOrder.map((id) => { const value = answers[id]; if (value === undefined) return null; const prior = withoutAnswer(answers, id); const q = getConversationQuestions(buildDesignProfile(request, prior), prior).find((item) => item.id === id); return <div key={id} className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4"><p className="ds-caption">{q?.prompt ?? id}</p><div className="mt-1 flex items-center justify-between gap-3"><p className="text-sm font-semibold">{q ? answerLabel(q, value) : String(value)}</p><button type="button" onClick={() => setEditing(id)} className="text-xs font-semibold text-[var(--color-brand)] hover:underline">Edit</button></div></div>; })}</div>}
         </aside>
         <div>
-          <div className="mb-4 flex flex-wrap items-center gap-3" aria-live="polite"><Badge tone={guidanceMode === "ai-enhanced" ? "success" : "muted"}>{guidanceMode === "ai-enhanced" ? "AI-enhanced guidance" : "Verified fallback guidance"}</Badge>{thinking && <span className="ds-caption animate-pulse">Considering your project…</span>}{providerError && <div className="flex items-center gap-3 text-sm text-[var(--color-danger)]"><span>{providerError}</span><button type="button" onClick={() => setRetryCount((count) => count + 1)} className="font-semibold underline">Retry</button></div>}</div>
-          {!complete && question ? <section className="ds-card p-6 shadow-[var(--shadow-md)] sm:p-8" aria-live="polite"><Badge tone="clay">Sawly asks</Badge><h2 className="ds-subheading mt-5">{question.prompt}</h2>{question.helpText && <p className="ds-body mt-2">{question.helpText}</p>}<div className="mt-6"><AnswerControl key={`${question.id}-${editing ?? "new"}`} question={question} onAnswer={answer} /></div></section> : resolution && <DesignRecommendations resolution={resolution} saved={saved} onSave={() => { saveDesignRequest({ prompt: request.raw, parsed: request, designProfile: effectiveProfile }); setSaved(true); }} />}
+          {requestRoute !== "custom-concept" && <div className="mb-4 flex flex-wrap items-center gap-3" aria-live="polite"><Badge tone={guidanceMode === "ai-enhanced" ? "success" : "muted"}>{guidanceMode === "ai-enhanced" ? "AI-enhanced guidance" : "Verified fallback guidance"}</Badge>{thinking && <span className="ds-caption animate-pulse">Considering your project…</span>}{providerError && <div className="flex items-center gap-3 text-sm text-[var(--color-danger)]"><span>{providerError}</span><button type="button" onClick={() => setRetryCount((count) => count + 1)} className="font-semibold underline">Retry</button></div>}</div>}
+          {requestRoute === "custom-concept" ? <CustomConceptEntry request={activePrompt} saved={saved} generating={conceptGenerating} error={conceptError} onGenerate={generateCustomConcepts} onSave={saveCurrentIdea} onEdit={editRequest} /> : !complete && question ? <section className="ds-card p-6 shadow-[var(--shadow-md)] sm:p-8" aria-live="polite"><Badge tone="clay">Sawly asks</Badge><h2 className="ds-subheading mt-5">{question.prompt}</h2>{question.helpText && <p className="ds-body mt-2">{question.helpText}</p>}<div className="mt-6"><AnswerControl key={`${question.id}-${editing ?? "new"}`} question={question} onAnswer={answer} /></div></section> : resolution && <DesignRecommendations resolution={resolution} saved={saved} onSave={saveCurrentIdea} onGenerate={generateCustomConcepts} generating={conceptGenerating} generationError={conceptError} />}
         </div>
       </div>}
     </section><SiteFooter />
   </main>;
 }
 
-function DesignRecommendations({ resolution, saved, onSave }: { resolution: ReturnType<typeof scoreDesignProfile>; saved: boolean; onSave: () => void }) {
+function DesignRecommendations({ resolution, saved, onSave, onGenerate, generating, generationError }: { resolution: ReturnType<typeof scoreDesignProfile>; saved: boolean; onSave: () => void; onGenerate: () => void; generating: boolean; generationError: string | null }) {
   const percent = Math.round(resolution.confidence * 100);
   return <section><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><Badge tone={resolution.band === "high" ? "success" : resolution.band === "medium" ? "clay" : "muted"}>{resolution.band} confidence · {percent}%</Badge><h2 className="ds-heading mt-4">{resolution.band === "high" ? "Our recommended starting point" : resolution.band === "medium" ? "A few directions could work" : "This needs a custom plan"}</h2><p className="ds-body mt-3 max-w-2xl">{resolution.explanation}</p></div><Tag>{resolution.profile.completeness}% profile complete</Tag></div>
-    {resolution.matches.length > 0 ? <div className="mt-8 grid gap-6 md:grid-cols-2">{resolution.matches.map((match) => { const project = getProject(match.projectId); if (!project) return null; return <article key={match.projectId} className="ds-card overflow-hidden"><ProjectImage asset={project.images.cardThumbnail} sizes="(min-width: 768px) 50vw, 100vw" className="aspect-[16/9]" /><div className="p-6"><div className="flex items-center justify-between gap-3"><Badge tone={match.band === "high" ? "success" : "clay"}>{Math.round(match.score * 100)}% match</Badge><span className="ds-caption">{project.difficulty}</span></div><h3 className="ds-subheading mt-4">{project.name}</h3><p className="ds-body mt-2">{project.description}</p><div className="mt-4 flex flex-wrap gap-2">{Object.entries(match.prefill.dimensions).map(([key, value]) => <Tag key={key}>{key}: {value} in</Tag>)}</div><Link href={templateHref(project.href, match)} className={buttonClassName("primary", "mt-6 w-full")}>Customize this plan</Link></div></article>; })}</div> : <div className="ds-card mt-8 p-7"><h3 className="ds-subheading">We don&apos;t have a verified match yet.</h3><p className="ds-body mt-3">Save this profile so the idea remains available when Sawly supports more custom project types.</p><Button className="mt-6" variant="primary" disabled={saved} onClick={onSave}>{saved ? "Idea saved" : "Save this idea"}</Button>{saved && <div role="status" className="ds-success mt-4"><strong>Idea saved.</strong> You can find it in Saved Ideas on the homepage.</div>}</div>}
+    {resolution.matches.length > 0 ? <div className="mt-8 grid gap-6 md:grid-cols-2">{resolution.matches.map((match) => { const project = getProject(match.projectId); if (!project) return null; return <article key={match.projectId} className="ds-card overflow-hidden"><ProjectImage asset={project.images.cardThumbnail} sizes="(min-width: 768px) 50vw, 100vw" className="aspect-[16/9]" /><div className="p-6"><div className="flex items-center justify-between gap-3"><Badge tone={match.band === "high" ? "success" : "clay"}>{Math.round(match.score * 100)}% match</Badge><span className="ds-caption">{project.difficulty}</span></div><h3 className="ds-subheading mt-4">{project.name}</h3><p className="ds-body mt-2">{project.description}</p><div className="mt-4 flex flex-wrap gap-2">{Object.entries(match.prefill.dimensions).map(([key, value]) => <Tag key={key}>{key}: {value} in</Tag>)}</div><Link href={templateHref(project.href, match)} className={buttonClassName("primary", "mt-6 w-full")}>Customize this plan</Link></div></article>; })}</div> : <div className="ds-card mt-8 p-7"><Badge tone="clay">AI Concept — Not Yet Build-Verified</Badge><h3 className="ds-subheading mt-4">Generate three custom concept directions</h3><p className="ds-body mt-3">Sawly can create visual, high-level design options for this idea. Concepts are not construction plans and must be verified before building.</p><div className="mt-6 flex flex-wrap gap-3"><Button variant="primary" disabled={generating} onClick={onGenerate}>{generating?"Generating custom concepts…":"Generate custom concepts"}</Button><Button variant="ghost" disabled={saved} onClick={onSave}>{saved?"Idea saved":"Save idea"}</Button></div>{generationError&&<div className="mt-4 text-sm text-[var(--color-danger)]" role="alert">{generationError}</div>}</div>}
     <div className="mt-8 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-surface)] p-5"><p className="ds-caption font-semibold">Design profile</p><div className="mt-3 flex flex-wrap gap-2"><Tag>{resolution.profile.projectType}</Tag>{resolution.profile.environment && <Tag>{resolution.profile.environment}</Tag>}{resolution.profile.material && <Tag>{resolution.profile.material}</Tag>}{resolution.profile.style && <Tag>{resolution.profile.style}</Tag>}{resolution.profile.capacity && <Tag>Seats {resolution.profile.capacity}</Tag>}</div></div>
   </section>;
 }

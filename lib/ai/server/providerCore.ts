@@ -5,6 +5,7 @@ import { buildDesignProfile } from "../profile";
 import type { OpenAIDesignOutput } from "./schema";
 import type { ConversationRequest } from "./requestValidation";
 import type { ProviderConversationResponse } from "@/types/ai";
+import { classifyDesignProfile } from "../requestRouting";
 
 export interface ConversationAnalyzer { analyze(prompt: string, profile: ProviderConversationResponse["profile"], answers: ConversationRequest["answers"]): Promise<OpenAIDesignOutput>; }
 
@@ -18,6 +19,9 @@ export function mergeValidatedAIProfile(base: ProviderConversationResponse["prof
 
 export async function resolveWithProvider(requestId: string, request: ConversationRequest, provider: ConversationAnalyzer | null): Promise<ProviderConversationResponse> {
   const profile = buildDesignProfile(parseDesignRequest(request.prompt), request.answers); const deterministicQuestion = getNextQuestion(profile, request.answers); const resolution = deterministicQuestion ? null : scoreDesignProfile(profile);
+  // Deterministic category protection runs before the remote provider. A model
+  // cannot turn a named unsupported project into a verified template flow.
+  if (classifyDesignProfile(profile) === "custom-concept") return { requestId, mode: "deterministic-fallback", profile, nextQuestion: null, resolution, explanation: resolution?.explanation ?? "This request is ready for custom concept generation." };
   if (!provider) return { requestId, mode: "deterministic-fallback", profile, nextQuestion: deterministicQuestion, resolution, explanation: resolution?.explanation ?? "Sawly is using its verified guided questions.", fallbackReason: "missing-key" };
   try {
     const enhanced = await provider.analyze(request.prompt, profile, request.answers);

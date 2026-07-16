@@ -1,4 +1,5 @@
 import type { DesignAnswers, DesignAnswerValue, DesignProfile, DesignQuestion, DesignQuestionId } from "@/types/ai";
+import { classifyDesignProfile } from "./requestRouting";
 
 const PROJECT_DEPENDENCIES: DesignQuestionId[] = ["dimensions", "capacity"];
 
@@ -10,6 +11,7 @@ export function updateConversationAnswer(answers: DesignAnswers, order: DesignQu
 }
 
 export function getConversationQuestions(profile: DesignProfile, answers: DesignAnswers): DesignQuestion[] {
+  if (classifyDesignProfile(profile) === "custom-concept") return [];
   const questions: DesignQuestion[] = [];
   if (profile.projectType === "unknown" && !("projectType" in answers)) questions.push({ id: "projectType", prompt: "Which kind of project do you mean?", helpText: "This helps Sawly avoid recommending the wrong kind of outdoor furniture.", type: "choice", required: true, options: [{ label: "Outdoor Table", value: "table" }, { label: "Outdoor Bench", value: "bench" }, { label: "Something else", value: "unknown" }] });
   if (!profile.environment && !("environment" in answers)) questions.push({ id: "environment", prompt: "Where will you use it?", type: "choice", required: true, options: [{ label: "Outdoors", value: "outdoor" }, { label: "Indoors", value: "indoor" }, { label: "Either", value: "either" }] });

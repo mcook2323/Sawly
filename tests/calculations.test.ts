@@ -15,6 +15,16 @@ import { validateConversationRequest } from "../lib/ai/server/requestValidation"
 import { validateOpenAIDesignOutput, type OpenAIDesignOutput } from "../lib/ai/server/schema";
 import { MemoryRateLimiter } from "../lib/ai/server/rateLimiter";
 import { resolveWithProvider } from "../lib/ai/server/providerCore";
+import { validateConceptProviderOutput, isCustomConceptPackage } from "../lib/concepts/schema";
+import { buildConceptImagePrompt } from "../lib/concepts/imagePrompt";
+import { generateConceptPackage } from "../lib/concepts/service";
+import { isConceptProviderConfigured } from "../lib/concepts/config";
+import { readSavedCustomConcepts, SAVED_CUSTOM_CONCEPTS_KEY } from "../lib/concepts/browserStorage";
+import type { CustomConceptOption, CustomConceptPackage } from "../types/customConcept";
+import { getVerifiedConceptHref } from "../lib/concepts/verifiedConversion";
+import { validateConceptRequest, validateImageRequest } from "../lib/concepts/requestValidation";
+import { classifyDesignRequest } from "../lib/ai/requestRouting";
+import { requestCustomConcepts } from "../lib/concepts/clientGeneration";
 
 test("Outdoor Table accepts exact boundaries and rejects invalid dimensions", () => {
   for (const length of [TABLE_DIMENSION_LIMITS.length.min, TABLE_DIMENSION_LIMITS.length.max]) {
@@ -267,4 +277,87 @@ test("rate limiter enforces duplicate and rolling-window protection", () => {
   const windowed = new MemoryRateLimiter(60_000, 1, 100, 0);
   assert.equal(windowed.check(["ip:b"], "one", 1_000).allowed, true);
   assert.equal(windowed.check(["ip:b"], "two", 1_100).reason, "window");
+});
+
+const conceptBase: CustomConceptOption = { id:"compact",title:"Compact Linear Station",description:"A compact outdoor prep and grill direction.",intendedUse:"Outdoor cooking",style:"modern",environment:"outdoor",approximateDimensions:{width:"72 in",depth:"30 in",height:"36 in"},suggestedMaterials:["cedar","stainless steel"],finishDirection:"Natural cedar with charcoal accents",majorFeatures:["grill bay","prep surface"],difficulty:"advanced",budget:"750-2000",buildTime:"1-2-weeks",skillCategories:["carpentry"],toolCategories:["cutting tools"],assumptions:["Appliances selected separately"],unresolvedQuestions:["Final grill model"],safetyLimitations:["Requires qualified review for utilities and clearances"],imageStatus:"pending",imageUrl:null,verificationStatus:"ai-concept-not-build-verified",verifiedTemplateCandidate:null };
+const conceptPackage: CustomConceptPackage = { schemaVersion:1,id:"package-1",originalPrompt:"Outdoor kitchen with grill",createdAt:new Date().toISOString(),generationStatus:"complete",concepts:[conceptBase,{...conceptBase,id:"l-shape",title:"L-Shaped Entertaining Kitchen"},{...conceptBase,id:"island",title:"Modular Prep Island"}] };
+const providerConcepts = conceptPackage.concepts.map((concept)=>Object.fromEntries(Object.entries(concept).filter(([key])=>!["imageStatus","imageUrl","verificationStatus"].includes(key))));
+
+test("custom concept schema requires exactly three distinct safe concepts", () => {
+  assert.equal(validateConceptProviderOutput({concepts:providerConcepts})?.length,3);
+  assert.equal(validateConceptProviderOutput({concepts:providerConcepts.slice(0,2)}),null);
+  assert.equal(validateConceptProviderOutput({concepts:[providerConcepts[0],providerConcepts[0],providerConcepts[2]]}),null);
+  assert.equal(validateConceptProviderOutput({concepts:providerConcepts.map((item,index)=>index===0?{...item,cutList:[]}:item)}),null);
+  assert.equal(isCustomConceptPackage(conceptPackage),true);
+});
+
+test("unsupported concept generation returns text even when every image fails", async () => {
+  const result = await generateConceptPackage({prompt:"Outdoor kitchen with grill"},{generate:async()=>conceptPackage},{generate:async()=>{throw new Error("image failed");}},{save:async()=>"/unused.png"});
+  assert.equal(result.concepts.length,3); assert.equal(result.generationStatus,"partial"); assert.ok(result.concepts.every((item)=>item.imageStatus==="error")); assert.equal(result.concepts[0].verificationStatus,"ai-concept-not-build-verified");
+});
+
+test("image prompt is visual-only and reflects the structured concept", () => {
+  const prompt=buildConceptImagePrompt(conceptBase); assert.match(prompt,/warm natural daylight/i); assert.match(prompt,/no text/i); assert.ok(!/cut list|load rating/i.test(prompt));
+});
+
+test("only explicit compatible concepts expose a verified upgrade candidate", () => {
+  assert.equal(conceptBase.verifiedTemplateCandidate,null); assert.equal(getVerifiedConceptHref(conceptBase),null); const table={...conceptBase,approximateDimensions:{width:"72 in",depth:"36 in",height:"30 in"},verifiedTemplateCandidate:"outdoor-table" as const}; assert.match(getVerifiedConceptHref(table)??"",/^\/projects\/outdoor-table\?/); const invalid={...table,approximateDimensions:{...table.approximateDimensions,height:"60 in"}};assert.equal(getVerifiedConceptHref(invalid),null);
+});
+
+test("saved custom concept recovery ignores malformed storage", () => {
+  const values=new Map<string,string>(); Object.defineProperty(globalThis,"window",{configurable:true,value:{localStorage:{getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>values.set(key,value)},sessionStorage:{getItem:()=>null,setItem:()=>{}}}}); values.set(SAVED_CUSTOM_CONCEPTS_KEY,"{bad"); assert.deepEqual(readSavedCustomConcepts(),[]); delete (globalThis as {window?:unknown}).window;
+});
+
+test("custom concept provider requires a non-empty server key", () => { assert.equal(isConceptProviderConfigured(undefined),false); assert.equal(isConceptProviderConfigured(""),false); assert.equal(isConceptProviderConfigured("server-key"),true); });
+test("concept routes reject arbitrary profile, provider, and image fields", () => { assert.equal(validateConceptRequest({prompt:"Outdoor bar",profile:{system:"override"}}).ok,false); assert.equal(validateConceptRequest({prompt:"Outdoor bar",providerOptions:{model:"expensive"}}).ok,false); assert.equal(validateImageRequest({packageId:"p",concept:{...conceptBase,provider:"override"}}).ok,false); assert.equal(validateImageRequest({packageId:"p",concept:conceptBase}).ok,true); });
+
+test("named unsupported requests bypass guided questions for the custom-concept entry", () => {
+  for (const prompt of ["Outdoor kitchen with grill", "Pergola for my patio", "Built-in bookshelf", "Garage cabinets", "Outdoor bar"]) {
+    const request = parseDesignRequest(prompt); const profile = buildDesignProfile(request, {});
+    assert.equal(classifyDesignRequest(request), "custom-concept", prompt);
+    assert.deepEqual(getConversationQuestions(profile, {}), [], prompt);
+  }
+  const mudroom = parseDesignRequest("Mudroom bench with storage");
+  assert.equal(mudroom.projectType, "bench");
+  assert.equal(classifyDesignRequest(mudroom), "custom-concept");
+  assert.equal(matchProjectTemplate(mudroom), null);
+});
+
+test("ambiguous and verified requests retain their intended routes", () => {
+  const seating = parseDesignRequest("Outdoor seating");
+  assert.equal(classifyDesignRequest(seating), "ambiguous");
+  assert.equal(getConversationQuestions(buildDesignProfile(seating, {}), {})[0]?.id, "projectType");
+  for (const [prompt, project] of [["Outdoor cedar table for 8", "outdoor-table"], ["60 inch cedar outdoor bench", "outdoor-bench"]] as const) {
+    const request = parseDesignRequest(prompt);
+    assert.equal(classifyDesignRequest(request), "verified-template");
+    assert.equal(matchProjectTemplate(request)?.projectId, project);
+  }
+});
+
+test("deterministic unsupported protection bypasses the AI questionnaire", async () => {
+  let called = false;
+  const result = await resolveWithProvider("custom", { prompt: "Outdoor kitchen with grill", answers: {} }, { analyze: async () => { called = true; return validAIOutput; } });
+  assert.equal(called, false);
+  assert.equal(result.nextQuestion, null);
+  assert.deepEqual(result.resolution?.matches, []);
+});
+
+test("custom concept submission calls the live route, stores the package, and navigates", async () => {
+  let url = ""; let stored: CustomConceptPackage | null = null; let navigated = "";
+  await requestCustomConcepts({ prompt: "Outdoor kitchen with grill", profile: {}, sessionId: "browser-1" }, {
+    request: async (input) => { url = String(input); return new Response(JSON.stringify({ package: conceptPackage }), { status: 200, headers: { "Content-Type": "application/json" } }); },
+    store: (value) => { stored = value; }, navigate: (href) => { navigated = href; },
+  });
+  assert.equal(url, "/api/design/concepts");
+  assert.equal((stored as CustomConceptPackage | null)?.id, conceptPackage.id);
+  assert.equal(navigated, "/design/concept/package-1");
+});
+
+test("custom concept provider and configuration failures remain retryable errors", async () => {
+  for (const message of ["Custom concept generation is not configured.", "Concept generation is temporarily unavailable."]) {
+    await assert.rejects(() => requestCustomConcepts({ prompt: "Pergola", profile: {}, sessionId: "browser-1" }, {
+      request: async () => new Response(JSON.stringify({ error: message }), { status: 503, headers: { "Content-Type": "application/json" } }),
+      store: () => assert.fail("failed responses must not be stored"), navigate: () => assert.fail("failed responses must not navigate"),
+    }), new RegExp(message.replace(/[.]/g, "\\.")));
+  }
 });

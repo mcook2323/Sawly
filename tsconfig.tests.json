@@ -12,5 +12,5 @@
     "rootDir": ".",
     "types": ["node"]
   },
-  "include": ["calculations/**/*.ts", "lib/ai/**/*.ts", "tests/**/*.ts"]
+  "include": ["calculations/**/*.ts", "lib/ai/**/*.ts", "lib/concepts/**/*.ts", "tests/**/*.ts"]
 }
