@@ -1,4 +1,5 @@
 import type { CustomConceptOption, CustomConceptPackage } from "@/types/customConcept";
+import { CategorizedConceptError } from "./errors";
 
 const difficulties = ["beginner","intermediate","advanced"];
 const budgets = ["under-250","250-750","750-2000","over-2000"];
@@ -26,13 +27,14 @@ export function validateConceptProviderOutput(value: unknown) {
   if (new Set(concepts.map((item) => `${item.id}:${item.title}`.toLowerCase())).size !== 3) return null;
   return concepts;
 }
+export function parseConceptProviderText(text: string) { let value: unknown; try { value = JSON.parse(text); } catch { throw new CategorizedConceptError("malformed_provider_response"); } const concepts = validateConceptProviderOutput(value); if (!concepts) throw new CategorizedConceptError("schema_validation_failed"); return concepts; }
 export function validateCustomConceptOption(value: unknown): value is CustomConceptOption {
   if (!value || typeof value !== "object") return false;
   const concept = value as CustomConceptOption;
-  const structured = Object.fromEntries(Object.entries(concept).filter(([key]) => !["imageStatus","imageUrl","verificationStatus"].includes(key)));
-  return validateConceptOption(structured) && ["pending","ready","error"].includes(concept.imageStatus) && concept.verificationStatus === "ai-concept-not-build-verified" && (concept.imageUrl === null || typeof concept.imageUrl === "string");
+  const structured = Object.fromEntries(Object.entries(concept).filter(([key]) => !["imageStatus","imageUrl","imageAttempts","imageError","imageLastAttemptedAt","verificationStatus"].includes(key)));
+  return validateConceptOption(structured) && ["queued","generating","ready","failed"].includes(concept.imageStatus) && Number.isInteger(concept.imageAttempts) && concept.imageAttempts >= 0 && (concept.imageError === null || typeof concept.imageError === "string") && (concept.imageLastAttemptedAt === null || typeof concept.imageLastAttemptedAt === "string") && concept.verificationStatus === "ai-concept-not-build-verified" && (concept.imageUrl === null || typeof concept.imageUrl === "string");
 }
 export function isCustomConceptPackage(value: unknown): value is CustomConceptPackage {
   if (!value || typeof value !== "object") return false; const v = value as Partial<CustomConceptPackage>;
-  return v.schemaVersion === 1 && typeof v.id === "string" && typeof v.originalPrompt === "string" && Array.isArray(v.concepts) && v.concepts.length === 3 && v.concepts.every(validateCustomConceptOption) && typeof v.createdAt === "string";
+  return v.schemaVersion === 1 && typeof v.id === "string" && typeof v.originalPrompt === "string" && Array.isArray(v.concepts) && v.concepts.length === 3 && v.concepts.every(validateCustomConceptOption) && typeof v.createdAt === "string" && ["text-ready","images-partial","images-ready"].includes(String(v.generationStatus));
 }

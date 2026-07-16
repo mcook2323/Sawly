@@ -16,6 +16,6 @@ export function validateConceptRequest(value: unknown): { ok: true; value: Custo
 }
 export function validateImageRequest(value: unknown): { ok: true; value: { packageId: string; concept: CustomConceptOption } } | { ok: false; error: string } {
   if (!value || typeof value !== "object") return { ok: false, error: "Invalid request." }; const v = value as Record<string, unknown>;
-  if (Object.keys(v).some((key) => !["packageId","concept"].includes(key)) || typeof v.packageId !== "string" || !validateCustomConceptOption(v.concept)) return { ok: false, error: "Invalid request." };
+  if (Object.keys(v).some((key) => !["packageId","concept"].includes(key)) || typeof v.packageId !== "string" || !validateCustomConceptOption(v.concept) || (v.concept as CustomConceptOption).imageAttempts > 3) return { ok: false, error: "Invalid request." };
   return { ok: true, value: { packageId: v.packageId.slice(0,100), concept: v.concept as CustomConceptOption } };
 }

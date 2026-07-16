@@ -9,6 +9,7 @@ export interface SavedProject {
   projectName: string;
   dimensions: Record<string, number>;
   material: WoodMaterial;
+  style?: string;
   savedAt: string;
 }
 
@@ -21,6 +22,7 @@ function isSavedProject(value: unknown): value is SavedProject {
     typeof item.projectName === "string" &&
     (item.material === "pine" || item.material === "cedar" || item.material === "treated") &&
     typeof item.savedAt === "string" &&
+    (item.style === undefined || typeof item.style === "string") &&
     !!item.dimensions &&
     Object.values(item.dimensions).every((dimension) => Number.isFinite(dimension))
   );

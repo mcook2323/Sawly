@@ -1,8 +1,10 @@
 import "server-only";
 import OpenAI from "openai";
 import { OpenAIConversationProvider } from "@/lib/ai/server/openAIProvider";
+import { resolveOpenAITextModel } from "@/lib/concepts/config";
+import { createPaidProvider } from "@/lib/ai/mode";
 
 export function createOpenAIProvider() {
-  if (!process.env.OPENAI_API_KEY) return null;
-  return new OpenAIConversationProvider(new OpenAI({ apiKey: process.env.OPENAI_API_KEY }), process.env.OPENAI_MODEL || "gpt-5.4-nano");
+  const key = process.env.OPENAI_API_KEY;
+  return createPaidProvider(process.env.SAWLY_AI_MODE, Boolean(key), () => new OpenAIConversationProvider(new OpenAI({ apiKey: key }), resolveOpenAITextModel(process.env.OPENAI_MODEL)));
 }

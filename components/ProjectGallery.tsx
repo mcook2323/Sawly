@@ -15,6 +15,7 @@ export function ProjectGallery({
   ariaLabel = "Project gallery",
 }: ProjectGalleryProps) {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [zoom, setZoom] = useState(1);
   const touchStartX = useRef<number | null>(null);
   const activeItem = items[activeIndex];
 
@@ -29,6 +30,7 @@ export function ProjectGallery({
   function showNext() {
     setActiveIndex((current) => (current + 1) % items.length);
   }
+  function showView(view: "lifestyle" | "blueprint") { const index = items.findIndex((item) => item.view === view); if (index >= 0) { setActiveIndex(index); setZoom(1); } }
 
   function handleTouchStart(event: TouchEvent<HTMLDivElement>) {
     touchStartX.current = event.changedTouches[0]?.clientX ?? null;
@@ -66,9 +68,7 @@ export function ProjectGallery({
               {activeItem.label}
             </h2>
           </div>
-          <p className="ds-body max-w-lg text-sm sm:text-right">
-            {activeItem.description}
-          </p>
+          <div className="flex flex-col items-start gap-2 sm:items-end"><p className="ds-body max-w-lg text-sm sm:text-right">{activeItem.description}</p><div className="flex flex-wrap gap-2"><button type="button" onClick={() => showView("lifestyle")} className="rounded-full border border-[var(--color-border)] bg-white px-3 py-2 text-xs font-semibold">Lifestyle</button><button type="button" onClick={() => showView("blueprint")} className="rounded-full border border-[var(--color-border)] bg-white px-3 py-2 text-xs font-semibold">Blueprint</button><button type="button" onClick={() => setZoom((value) => Math.max(.8, value - .1))} aria-label="Zoom out" className="h-9 w-9 rounded-full border border-[var(--color-border)] bg-white font-semibold">−</button><button type="button" onClick={() => setZoom((value) => Math.min(1.4, value + .1))} aria-label="Zoom in" className="h-9 w-9 rounded-full border border-[var(--color-border)] bg-white font-semibold">+</button><button type="button" onClick={() => { setZoom(1); setActiveIndex(0); }} className="rounded-full border border-[var(--color-border)] bg-white px-3 py-2 text-xs font-semibold">Reset view</button></div></div>
         </div>
 
         <div
@@ -79,7 +79,7 @@ export function ProjectGallery({
           <div aria-live="polite" className="sr-only">
             Showing {activeItem.label}, item {activeIndex + 1} of {items.length}
           </div>
-          {renderItem(activeItem, false)}
+          <div className="origin-center transition-transform duration-300 ease-out" style={{ transform: `scale(${zoom})` }}>{renderItem(activeItem, false)}</div>
 
           <button
             type="button"

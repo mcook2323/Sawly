@@ -14,6 +14,7 @@ import { SaveProjectButton } from "@/components/SaveProjectButton";
 import { getOutdoorBenchBuildSteps } from "@/data/buildSteps";
 import { OUTDOOR_BENCH_GALLERY_ITEMS } from "@/data/projectGallery";
 import { readSavedProjects } from "@/lib/savedProjects";
+import { PROJECT_SNAP_POINTS, seatingCapacity, suggestedLengthForSeating } from "@/lib/designStudio";
 
 function error(value: string, label: string, min: number, max: number) {
   if (!value.trim()) return `${label} is required.`;
@@ -27,12 +28,13 @@ export default function OutdoorBenchPage() {
   const [depth, setDepth] = useState("18");
   const [seatHeight, setSeatHeight] = useState("18");
   const [wood, setWood] = useState<WoodMaterial>("pine");
+  const [style, setStyle] = useState("modern");
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const params = new URLSearchParams(window.location.search);
       const id = params.get("saved");
       const saved = id ? readSavedProjects().find((item) => item.id === id && item.projectType === "outdoor-bench") : null;
-      if (saved) { setLength(String(saved.dimensions.length)); setDepth(String(saved.dimensions.depth)); setSeatHeight(String(saved.dimensions.seatHeight)); setWood(saved.material); return; }
+      if (saved) { setLength(String(saved.dimensions.length)); setDepth(String(saved.dimensions.depth)); setSeatHeight(String(saved.dimensions.seatHeight)); setWood(saved.material); if (saved.style) setStyle(saved.style); return; }
       const material = params.get("material");
       if (params.get("length")) setLength(params.get("length")!);
       if (params.get("depth")) setDepth(params.get("depth")!);
@@ -42,7 +44,7 @@ export default function OutdoorBenchPage() {
     return () => window.clearTimeout(timer);
   }, []);
   const fields: DimensionField[] = [
-    { key: "length", label: "Length", value: length, ...BENCH_DIMENSION_LIMITS.length, error: error(length, "Length", 36, 96), onChange: setLength },
+    { key: "length", label: "Length", value: length, ...BENCH_DIMENSION_LIMITS.length, error: error(length, "Length", 36, 96), onChange: setLength, snapPoints: PROJECT_SNAP_POINTS["outdoor-bench"] },
     { key: "depth", label: "Depth", value: depth, ...BENCH_DIMENSION_LIMITS.depth, error: error(depth, "Depth", 16, 24), onChange: setDepth },
     { key: "seatHeight", label: "Seat height", value: seatHeight, ...BENCH_DIMENSION_LIMITS.seatHeight, error: error(seatHeight, "Seat height", 16, 20), onChange: setSeatHeight },
   ];
@@ -51,8 +53,11 @@ export default function OutdoorBenchPage() {
   const plan = valid ? generateBenchPlan({ ...dimensions, wood }) : null;
   const shopping = plan ? generateShoppingList(plan.cutList, plan.hardware) : null;
   const steps = plan ? getOutdoorBenchBuildSteps(plan) : [];
+  const seats = seatingCapacity("outdoor-bench", dimensions.length);
+  const lumberCount = shopping?.lumber.reduce((total, item) => total + item.quantity, 0) ?? 0;
+  const seatingPresets = [4, 6, 8, 10].map((count) => ({ seats: count, length: suggestedLengthForSeating("outdoor-bench", count, BENCH_DIMENSION_LIMITS.length.min, BENCH_DIMENSION_LIMITS.length.max) }));
   return (
-    <ProjectPageShell projectName="Modern Outdoor Bench" materialLabel={getMaterialLabel(wood)} estimatedCostRange={shopping?.estimatedCostRangeCents ?? null} isReady={Boolean(plan)} summaryDetails={[{ label: "Build time", value: "4–6 hours" }, { label: "Difficulty", value: "Beginner" }, { label: "Seats", value: dimensions.length >= 72 ? "3 people" : "2 people" }, { label: "Skill level", value: "Beginner" }]} headerAction={<SaveProjectButton projectType="outdoor-bench" projectName="Modern Outdoor Bench" dimensions={dimensions} material={wood} disabled={!valid} />} gallery={<ProjectGallery items={OUTDOOR_BENCH_GALLERY_ITEMS} ariaLabel="Outdoor Bench views" renderItem={(item, thumbnail) => <OutdoorBenchGalleryVisual view={item.view} {...dimensions} wood={wood} thumbnail={thumbnail} />} />} configuration={<DimensionConfiguration fields={fields} material={wood} onMaterialChange={setWood} />}>
+    <ProjectPageShell projectName="Modern Outdoor Bench" materialLabel={getMaterialLabel(wood)} estimatedCostRange={shopping?.estimatedCostRangeCents ?? null} isReady={Boolean(plan)} summaryDetails={[{ label: "Build time", value: "4–6 hours" }, { label: "Difficulty", value: "Beginner" }, { label: "Seats", value: `${seats} people` }, { label: "Lumber", value: plan ? `${lumberCount} pieces` : "—" }]} headerAction={<SaveProjectButton projectType="outdoor-bench" projectName="Modern Outdoor Bench" dimensions={dimensions} material={wood} style={style} disabled={!valid} />} gallery={<ProjectGallery items={OUTDOOR_BENCH_GALLERY_ITEMS} ariaLabel="Outdoor Bench views" renderItem={(item, thumbnail) => <OutdoorBenchGalleryVisual view={item.view} {...dimensions} wood={wood} thumbnail={thumbnail} />} />} configuration={<DimensionConfiguration fields={fields} material={wood} onMaterialChange={setWood} style={style} styleOptions={[{ value: "modern", label: "Modern slatted" }, { value: "classic", label: "Classic" }]} onStyleChange={setStyle} seatingPresets={seatingPresets} onApplySeating={(value) => setLength(String(value))} />}>
       {plan && shopping ? <><div className="print-hide mt-8"><ProjectTrustNotice /></div><PlanTabs plan={plan} shoppingList={shopping} buildSteps={steps} /></> : <div className="print-hide mt-6 rounded-xl border border-[#d8a69b] bg-[#f8eae5] p-5">Correct the highlighted dimensions to generate the bench plan.</div>}
     </ProjectPageShell>
   );

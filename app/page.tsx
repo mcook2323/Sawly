@@ -60,7 +60,7 @@ export default function Home() {
         <div className="mx-auto max-w-5xl text-center">
           <p className="ds-eyebrow">A clearer way from idea to build</p>
           <h1 className="ds-display mx-auto mt-5 max-w-4xl">Design what fits your home.</h1>
-          <p className="ds-body mx-auto mt-6 max-w-2xl text-lg">Describe what you want to make. Sawly will organize the idea and connect it to a practical, customizable project when a verified template exists.</p>
+          <p className="ds-body mx-auto mt-6 max-w-2xl text-lg">Describe what you want to make. Sawly uses guided questions and deterministic matching to connect it to a practical, customizable project when a verified template exists.</p>
           <div className="mt-10 text-left"><AIDesignPrompt /></div>
         </div>
         {featured && <div className="pointer-events-none absolute right-[4%] top-16 hidden w-56 rotate-3 opacity-20 xl:block"><ProjectImage asset={featured.images.cardThumbnail} sizes="224px" priority className="aspect-[4/3] rounded-[var(--radius-xl)]" /></div>}

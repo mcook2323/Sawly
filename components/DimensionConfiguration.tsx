@@ -1,52 +1,13 @@
 import type { WoodMaterial } from "@/calculations/materialCatalog";
 import { MaterialSelector } from "@/components/MaterialSelector";
 
-export interface DimensionField {
-  key: string;
-  label: string;
-  value: string;
-  min: number;
-  max: number;
-  error: string | null;
-  onChange: (value: string) => void;
-}
+export interface DimensionField { key: string; label: string; value: string; min: number; max: number; error: string | null; onChange: (value: string) => void; snapPoints?: number[]; }
+interface Props { fields: DimensionField[]; material: WoodMaterial; onMaterialChange: (material: WoodMaterial) => void; style: string; styleOptions: Array<{ value: string; label: string }>; onStyleChange: (style: string) => void; seatingPresets?: Array<{ seats: number; length: number | null }>; onApplySeating?: (length: number) => void; }
 
-interface DimensionConfigurationProps {
-  fields: DimensionField[];
-  material: WoodMaterial;
-  onMaterialChange: (material: WoodMaterial) => void;
-}
-
-export function DimensionConfiguration({ fields, material, onMaterialChange }: DimensionConfigurationProps) {
-  return (
-    <section className="ds-card mt-8 p-5 sm:p-7 lg:p-8">
-      <div className="grid gap-7 lg:grid-cols-[16rem_minmax(0,1fr)] lg:gap-10">
-        <div>
-          <p className="ds-eyebrow">Design studio</p>
-          <h2 className="ds-subheading mt-3">Project details</h2>
-          <p className="ds-body mt-3 text-sm">Adjust dimensions or material and every plan section updates instantly.</p>
-        </div>
-        <div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            {fields.map((field) => (
-              <div key={field.key}>
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <label htmlFor={`${field.key}-input`} className="text-sm font-semibold text-[#4b4139]">{field.label}</label>
-                  <span className="text-xs text-[#9a8e83]">inches</span>
-                </div>
-                <div className="relative">
-                  <input id={`${field.key}-input`} type="number" min={field.min} max={field.max} value={field.value} aria-invalid={Boolean(field.error)} aria-describedby={field.error ? `${field.key}-error` : `${field.key}-range`} onChange={(event) => field.onChange(event.target.value)} className="ds-input pr-12 font-semibold" />
-                  <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[#9a8e83]">in</span>
-                </div>
-                <p id={field.error ? `${field.key}-error` : `${field.key}-range`} className={`mt-2 text-xs ${field.error ? "text-[#a44f40]" : "text-[#a79b90]"}`}>{field.error ?? `${field.min}–${field.max} in`}</p>
-              </div>
-            ))}
-          </div>
-          <div className="mt-6 border-t border-[#e4dacd] pt-6">
-            <MaterialSelector value={material} onChange={onMaterialChange} layout="grid" />
-          </div>
-        </div>
-      </div>
-    </section>
-  );
+export function DimensionConfiguration({ fields, material, onMaterialChange, style, styleOptions, onStyleChange, seatingPresets = [], onApplySeating }: Props) {
+  return <section className="ds-card mt-8 p-5 sm:p-7 lg:p-8"><div className="grid gap-7 lg:grid-cols-[16rem_minmax(0,1fr)] lg:gap-10"><div><p className="ds-eyebrow">Design studio</p><h2 className="ds-subheading mt-3">Project details</h2><p className="ds-body mt-3 text-sm">Drag for quick changes or type an exact measurement. Every verified plan section updates live.</p></div><div>
+    <div className="grid gap-5 sm:grid-cols-3">{fields.map((field) => <div key={field.key}><div className="mb-2 flex items-center justify-between gap-3"><label htmlFor={`${field.key}-input`} className="text-sm font-semibold text-[#4b4139]">{field.label}</label><span className="text-xs text-[#9a8e83]">inches</span></div><div className="relative"><input id={`${field.key}-input`} type="number" min={field.min} max={field.max} value={field.value} aria-invalid={Boolean(field.error)} aria-describedby={field.error ? `${field.key}-error` : `${field.key}-range`} onChange={(event) => field.onChange(event.target.value)} className="ds-input pr-12 font-semibold" /><span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[#9a8e83]">in</span></div><input type="range" min={field.min} max={field.max} step="1" value={field.error ? field.min : Number(field.value)} onChange={(event) => field.onChange(event.target.value)} aria-label={`${field.label} slider`} className="mt-2 h-11 w-full cursor-pointer accent-[var(--color-brand)]" />{field.snapPoints && <div className="flex flex-wrap gap-1.5">{field.snapPoints.filter((point) => point >= field.min && point <= field.max).map((point) => <button type="button" key={point} onClick={() => field.onChange(String(point))} className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition ${Number(field.value) === point ? "border-[var(--color-brand)] bg-[var(--color-brand-soft)] text-[var(--color-brand)]" : "border-[var(--color-border)] bg-white hover:border-[var(--color-brand)]"}`}>{point}&quot;</button>)}</div>}<p id={field.error ? `${field.key}-error` : `${field.key}-range`} className={`mt-2 text-xs ${field.error ? "text-[#a44f40]" : "text-[#a79b90]"}`}>{field.error ?? `${field.min}–${field.max} in`}</p></div>)}</div>
+    {seatingPresets.length > 0 && <div className="mt-6 border-t border-[#e4dacd] pt-6"><p className="text-sm font-semibold">Apply suggested size</p><p className="ds-caption mt-1">Only verified lengths within this generator’s limits can be applied.</p><div className="mt-3 flex flex-wrap gap-2">{seatingPresets.map(({ seats, length }) => <button type="button" key={seats} disabled={length === null} onClick={() => length !== null && onApplySeating?.(length)} className="rounded-full border border-[var(--color-border)] bg-white px-3 py-2 text-sm font-semibold transition hover:border-[var(--color-brand)] disabled:cursor-not-allowed disabled:opacity-40">{seats} people{length ? ` · ${length}″` : " · unavailable"}</button>)}</div></div>}
+    <div className="mt-6 grid gap-6 border-t border-[#e4dacd] pt-6 lg:grid-cols-[1fr_14rem]"><MaterialSelector value={material} onChange={onMaterialChange} layout="grid" /><label className="text-sm font-semibold">Style preset<select value={style} onChange={(event) => onStyleChange(event.target.value)} className="ds-input mt-2">{styleOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select><span className="ds-caption mt-2 block">Style does not alter verified structural calculations.</span></label></div>
+  </div></div></section>;
 }

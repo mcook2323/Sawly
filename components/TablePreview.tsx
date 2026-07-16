@@ -68,7 +68,7 @@ export function TablePreview({
         viewBox="0 0 680 500"
         role="img"
         aria-label={`Outdoor table preview, ${length} inches long by ${width} inches wide by ${height} inches high`}
-        className={`${compact ? "max-h-28" : "max-h-[460px]"} drop-shadow-[0_20px_30px_rgba(91,70,49,0.18)]`}
+        className={`${compact ? "max-h-28" : "max-h-[460px]"} transition-all duration-300 ease-out drop-shadow-[0_20px_30px_rgba(91,70,49,0.18)]`}
       >
         {variant === "lifestyle" && (
           <g aria-hidden="true" opacity="0.55">

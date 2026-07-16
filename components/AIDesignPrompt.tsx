@@ -34,7 +34,7 @@ export function AIDesignPrompt({ compact = false, initialValue = "", onPromptSub
         <Button type="submit" variant="primary" disabled={!prompt.trim() || submitting} className="self-stretch px-7 lg:self-end">{submitting ? "Opening…" : "Explore design"}</Button>
       </div>
       {!compact && <div className="mt-5 flex flex-wrap gap-2" aria-label="Example project ideas">{AI_EXAMPLE_PROMPTS.map((example) => <button key={example} type="button" onClick={() => setPrompt(example)} className="ds-tag cursor-pointer transition hover:border-[var(--color-brand)] hover:bg-[var(--color-brand-soft)]">{example}</button>)}</div>}
-      <p className="ds-caption mt-4">Sawly matches supported ideas to verified plans and can generate visual concepts for other project categories.</p>
+      <p className="ds-caption mt-4">Sawly matches supported ideas to verified plans. Unsupported ideas can be saved for later.</p>
     </form>
   );
 }

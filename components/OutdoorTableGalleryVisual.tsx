@@ -60,7 +60,7 @@ export function OutdoorTableGalleryVisual({
         viewBox="0 0 640 420"
         role="img"
         aria-label={`${view === "front" ? "Front" : "Side"} elevation of the table`}
-        className="h-full w-full max-w-4xl"
+        className="h-full w-full max-w-4xl transition-all duration-300 ease-out"
       >
         <rect width="640" height="420" fill="#eee5d8" />
         <circle cx="530" cy="72" r="38" fill="#f4d99a" opacity="0.55" />

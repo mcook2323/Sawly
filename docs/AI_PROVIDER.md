@@ -1,5 +1,11 @@
 # Sawly AI conversation provider
 
+## Deployment mode
+
+Sawly defaults to `SAWLY_AI_MODE=deterministic`. Guided questions, template matching, saved ideas, and the verified Table and Bench generators then work without OpenAI calls. Both OpenAI text providers and the image provider are disabled at their factories and guarded again at the custom-concept routes.
+
+Set `SAWLY_AI_MODE=openai` explicitly to enable the existing server-side OpenAI providers. A valid `OPENAI_API_KEY` and the documented model configuration are still required. Provider settings and secrets must never use `NEXT_PUBLIC_` variables.
+
 ## Architecture
 
 `POST /api/design/conversation` is the only browser-facing AI boundary. It validates and rate-limits requests before selecting a provider. `OpenAIConversationProvider` uses the official OpenAI JavaScript SDK and Responses API on the server. `resolveWithProvider` converts provider guidance back into Sawly's provider-neutral contracts. Deterministic parsing, question selection, matching, and the Table/Bench generators remain authoritative.
@@ -12,12 +18,13 @@ Copy `.env.example` to `.env.local` and set:
 
 ```text
 OPENAI_API_KEY=your_key_here
-OPENAI_MODEL=gpt-5.4-nano
+OPENAI_MODEL=gpt-5.6-luna
+OPENAI_CONCEPT_TIMEOUT_MS=45000
 ```
 
 Create an API key in the OpenAI platform dashboard. Never commit the key. `.env.local` is ignored by Git, and no `NEXT_PUBLIC_` key is used. Restart the development server after changing environment variables.
 
-`OPENAI_MODEL` is optional. The default is `gpt-5.4-nano`, selected for cost-conscious classification and structured extraction. The environment variable keeps the product independent of a permanent model choice.
+`OPENAI_MODEL` is optional. The default is `gpt-5.6-luna`, a cost-conscious current model that supports the Responses API. The environment variable keeps the product independent of a permanent model choice. Custom concept text generation uses `OPENAI_CONCEPT_TIMEOUT_MS`, defaulting to 45 seconds.
 
 ## Structured output and fallback
 

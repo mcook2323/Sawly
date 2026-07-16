@@ -18,7 +18,7 @@ export function OutdoorBenchGalleryVisual({ view, length, depth, seatHeight, woo
   const blueprint = view === "blueprint";
   return (
     <div className={`${blueprint ? "blueprint-grid" : "bg-[#eee5d8]"} relative flex items-center justify-center overflow-hidden ${thumbnail ? "h-full" : "min-h-[24rem] sm:min-h-[34rem]"}`}>
-      <svg viewBox="0 0 640 420" role="img" aria-label={`${view} view of configured outdoor bench`} className="h-full w-full max-w-4xl">
+      <svg viewBox="0 0 640 420" role="img" aria-label={`${view} view of configured outdoor bench`} className="h-full w-full max-w-4xl transition-all duration-300 ease-out">
         <rect x={x} y={y} width={visualWidth} height="28" rx="3" fill={blueprint ? "rgba(246,239,215,.12)" : colors.top} stroke={blueprint ? "#f6efd7" : colors.edge} strokeWidth="3" />
         {[0.18, 0.38, 0.58, 0.78].map((position) => <line key={position} x1={x + visualWidth * position} y1={y} x2={x + visualWidth * position} y2={y + 28} stroke={blueprint ? "#b9d3d0" : colors.edge} />)}
         <rect x={x + 18} y={y + 30} width={visualWidth - 36} height="28" fill={blueprint ? "none" : colors.edge} stroke={blueprint ? "#f6efd7" : colors.edge} strokeWidth="3" />
