@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type PointerEvent } from "react";
+import { useRef, useState, type PointerEvent, type TouchEvent } from "react";
 import type { WoodMaterial } from "@/calculations/materialCatalog";
 import { getMaterialLabel } from "@/calculations/materialCatalog";
 
@@ -47,6 +47,9 @@ export function PremiumDesignStudio({ project, dimensions, material, style, styl
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [dimensionsVisible, setDimensionsVisible] = useState(false);
+  const [dimensionsManuallySet, setDimensionsManuallySet] = useState(false);
+  const pinchStart = useRef<{ distance: number; zoom: number } | null>(null);
   const swatch = MATERIALS[material];
   const primary = dimensions[0];
   const secondary = dimensions[1];
@@ -54,12 +57,25 @@ export function PremiumDesignStudio({ project, dimensions, material, style, styl
   const comparisonDelta = Math.max(2, Math.round(primary.value * 0.08));
   const versionB = clamp(primary.value + comparisonDelta, primary.min, primary.max);
 
-  function dragDimension(event: PointerEvent<HTMLButtonElement>, dimension: StudioDimension) {
-    const startX = event.clientX;
+  function selectMode(nextMode: Mode) {
+    setMode(nextMode);
+    if (!dimensionsManuallySet) setDimensionsVisible(nextMode === "blueprint");
+  }
+
+  function toggleDimensions() {
+    setDimensionsManuallySet(true);
+    setDimensionsVisible((visible) => !visible);
+  }
+
+  function dragDimension(event: PointerEvent<SVGCircleElement>, dimension: StudioDimension, axis: "x" | "y") {
+    event.stopPropagation();
+    const start = axis === "x" ? event.clientX : event.clientY;
     const startValue = dimension.value;
     event.currentTarget.setPointerCapture(event.pointerId);
     const move = (moveEvent: globalThis.PointerEvent) => {
-      const next = clamp(startValue + (moveEvent.clientX - startX) / 3, dimension.min, dimension.max);
+      const nextPointer = axis === "x" ? moveEvent.clientX : start - (moveEvent.clientY - start);
+      const delta = axis === "x" ? moveEvent.clientX - start : nextPointer - start;
+      const next = clamp(startValue + delta / 3, dimension.min, dimension.max);
       dimension.onChange(String(next));
     };
     const up = () => {
@@ -68,6 +84,47 @@ export function PremiumDesignStudio({ project, dimensions, material, style, styl
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
+  }
+
+  function startPan(event: PointerEvent<HTMLDivElement>) {
+    if (event.button !== 0 && event.pointerType === "mouse") return;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const startPanValue = pan;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const move = (moveEvent: globalThis.PointerEvent) => {
+      setPan({ x: startPanValue.x + moveEvent.clientX - startX, y: startPanValue.y + moveEvent.clientY - startY });
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
+
+  function zoomBy(delta: number) {
+    setZoom((value) => Math.min(1.8, Math.max(0.65, Number((value + delta).toFixed(2)))));
+  }
+
+  function touchDistance(event: TouchEvent<HTMLDivElement>) {
+    const first = event.touches.item(0);
+    const second = event.touches.item(1);
+    if (!first || !second) return null;
+    return Math.hypot(second.clientX - first.clientX, second.clientY - first.clientY);
+  }
+
+  function startTouchZoom(event: TouchEvent<HTMLDivElement>) {
+    const distance = touchDistance(event);
+    pinchStart.current = distance ? { distance, zoom } : null;
+  }
+
+  function moveTouchZoom(event: TouchEvent<HTMLDivElement>) {
+    if (!pinchStart.current || event.touches.length < 2) return;
+    event.preventDefault();
+    const distance = touchDistance(event);
+    if (!distance) return;
+    setZoom(Math.min(1.8, Math.max(0.65, Number((pinchStart.current.zoom * (distance / pinchStart.current.distance)).toFixed(2)))));
   }
 
   return (
@@ -81,19 +138,20 @@ export function PremiumDesignStudio({ project, dimensions, material, style, styl
             </div>
             <div className="flex flex-wrap gap-2">
               {(["lifestyle", "blueprint"] as const).map((item) => (
-                <button key={item} type="button" onClick={() => setMode(item)} className={`rounded-full px-4 py-2 text-sm font-bold capitalize transition ${mode === item ? "bg-[#29372b] text-white" : "border border-[#d8c9b8] bg-white text-[#55483d] hover:border-[#58664a]"}`}>{item}</button>
+                <button key={item} type="button" onClick={() => selectMode(item)} className={`rounded-full px-4 py-2 text-sm font-bold capitalize transition ${mode === item ? "bg-[#29372b] text-white" : "border border-[#d8c9b8] bg-white text-[#55483d] hover:border-[#58664a]"}`}>{item}</button>
               ))}
+              <button type="button" onClick={toggleDimensions} className={`rounded-full px-4 py-2 text-sm font-bold transition ${dimensionsVisible ? "bg-[#58664a] text-white" : "border border-[#d8c9b8] bg-white text-[#55483d] hover:border-[#58664a]"}`}>Dimensions</button>
             </div>
           </div>
 
-          <div className={`relative min-h-[28rem] overflow-hidden rounded-[1.5rem] border border-[#d8c9b8] ${mode === "blueprint" ? "blueprint-grid" : "premium-lifestyle"}`}>
-            <div className="absolute left-4 top-4 z-10 flex flex-wrap gap-2 rounded-full bg-white/85 p-2 shadow-sm backdrop-blur">
-              <button type="button" onClick={() => setZoom((value) => Math.min(1.6, Number((value + 0.1).toFixed(1))))} className="studio-tool">Zoom +</button>
-              <button type="button" onClick={() => setZoom((value) => Math.max(0.7, Number((value - 0.1).toFixed(1))))} className="studio-tool">Zoom -</button>
+          <div onPointerDown={startPan} onTouchStart={startTouchZoom} onTouchMove={moveTouchZoom} onTouchEnd={() => { pinchStart.current = null; }} onWheel={(event) => { event.preventDefault(); zoomBy(event.deltaY > 0 ? -0.08 : 0.08); }} className={`relative min-h-[30rem] touch-none cursor-grab overflow-hidden rounded-[1.5rem] border border-[#d8c9b8] active:cursor-grabbing ${mode === "blueprint" ? "blueprint-grid" : "premium-lifestyle"}`}>
+            <div onPointerDown={(event) => event.stopPropagation()} className="absolute left-3 top-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-wrap gap-2 rounded-2xl bg-white/88 p-2 shadow-sm backdrop-blur sm:left-4 sm:top-4 sm:rounded-full">
+              <button type="button" onClick={() => zoomBy(0.1)} className="studio-tool">Zoom +</button>
+              <button type="button" onClick={() => zoomBy(-0.1)} className="studio-tool">Zoom -</button>
               <button type="button" onClick={() => setPan((value) => ({ x: value.x - 16, y: value.y }))} className="studio-tool">Pan</button>
               <button type="button" onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} className="studio-tool">Reset</button>
             </div>
-            <svg viewBox="0 0 760 420" role="img" aria-label={`${displayStyle(styleOptions, style)} ${project} preview`} className="h-full min-h-[28rem] w-full" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: "center", transition: "transform 180ms ease" }}>
+            <svg viewBox="0 0 860 540" role="img" aria-label={`${displayStyle(styleOptions, style)} ${project} preview`} className="h-full min-h-[30rem] w-full select-none">
               <defs>
                 <linearGradient id={`wood-${material}`} x1="0" x2="1">
                   <stop offset="0%" stopColor={swatch.dark} />
@@ -107,18 +165,18 @@ export function PremiumDesignStudio({ project, dimensions, material, style, styl
                 </pattern>
                 <filter id="studio-shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="20" stdDeviation="16" floodOpacity="0.24" /></filter>
               </defs>
-              <g filter="url(#studio-shadow)">
-                {project === "table" ? <TableSvg fill={`url(#grain-${material})`} styleName={style} /> : <BenchSvg fill={`url(#grain-${material})`} styleName={style} />}
+              <g style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: "430px 280px", transition: "transform 120ms ease" }}>
+                <g filter="url(#studio-shadow)">
+                  {project === "table" ? <TableSvg fill={`url(#grain-${material})`} styleName={style} /> : <BenchSvg fill={`url(#grain-${material})`} styleName={style} />}
+                </g>
+                {dimensionsVisible && <DimensionAnnotations primary={primary} secondary={secondary} tertiary={tertiary} onDrag={dragDimension} />}
               </g>
-              <DimensionGuide x1={138} y1={350} x2={622} y2={350} label={`${primary.label}: ${primary.value}″`} />
-              <DimensionGuide x1={640} y1={160} x2={640} y2={310} label={`${tertiary.label}: ${tertiary.value}″`} vertical />
-              <DimensionGuide x1={205} y1={118} x2={330} y2={118} label={`${secondary.label}: ${secondary.value}″`} />
             </svg>
-            <div className="absolute bottom-4 left-4 right-4 grid gap-3 md:grid-cols-3">
+            <div className="pointer-events-none absolute bottom-3 left-3 right-3 grid gap-2 sm:bottom-4 sm:left-4 sm:right-4 md:grid-cols-3">
               {dimensions.map((dimension) => (
-                <div key={dimension.key} className="rounded-2xl border border-white/70 bg-white/88 p-3 shadow-sm backdrop-blur">
-                  <div className="flex items-center justify-between gap-3"><label htmlFor={`premium-${dimension.key}`} className="text-xs font-black uppercase tracking-[0.18em] text-[#80634e]">{dimension.label}</label><button type="button" onPointerDown={(event) => dragDimension(event, dimension)} className="cursor-ew-resize rounded-full bg-[#58664a] px-3 py-1 text-xs font-bold text-white">Drag ↔</button></div>
-                  <input id={`premium-${dimension.key}`} type="number" min={dimension.min} max={dimension.max} value={dimension.value || ""} onChange={(event) => dimension.onChange(event.target.value)} className="ds-input mt-2 h-11 min-h-0 py-2 font-bold" />
+                <div key={dimension.key} onPointerDown={(event) => event.stopPropagation()} className="pointer-events-auto rounded-2xl border border-white/70 bg-white/90 p-2 shadow-sm backdrop-blur sm:p-3">
+                  <label htmlFor={`premium-${dimension.key}`} className="text-[0.65rem] font-black uppercase tracking-[0.16em] text-[#80634e] sm:text-xs">{dimension.label}</label>
+                  <input id={`premium-${dimension.key}`} type="number" min={dimension.min} max={dimension.max} value={dimension.value || ""} onChange={(event) => dimension.onChange(event.target.value)} className="ds-input mt-1 h-10 min-h-0 py-2 text-sm font-bold sm:h-11" />
                 </div>
               ))}
             </div>
@@ -131,6 +189,7 @@ export function PremiumDesignStudio({ project, dimensions, material, style, styl
             <label className="block text-sm font-bold">Style<select value={style} onChange={(event) => onStyleChange(event.target.value)} className="ds-input mt-2">{styleOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
             <InspectorRow label="Material" value={getMaterialLabel(material)} />
             <InspectorRow label="Mode" value={mode} />
+            <InspectorRow label="Dimensions" value={dimensionsVisible ? "shown" : "hidden"} />
             <InspectorRow label="Zoom" value={`${Math.round(zoom * 100)}%`} />
             <div className="rounded-2xl border border-[#dfd0bf] bg-white p-4"><p className="text-xs font-black uppercase tracking-[0.18em] text-[#80634e]">A/B comparison</p><div className="mt-3 grid grid-cols-2 gap-3 text-sm"><div className="rounded-xl bg-[#f4eadc] p-3"><strong>{versionALabel}</strong><p>{primary.value}″ {primary.label.toLowerCase()}</p></div><div className="rounded-xl bg-[#e7edde] p-3"><strong>{versionBLabel}</strong><p>{versionB}″ {primary.label.toLowerCase()}</p></div></div></div>
             <div className="rounded-2xl border border-[#dfd0bf] bg-white p-4"><p className="text-xs font-black uppercase tracking-[0.18em] text-[#80634e]">Style rule</p><p className="mt-2 text-sm text-[#66584c]">{styleRule(project, style)}</p></div>
@@ -141,12 +200,33 @@ export function PremiumDesignStudio({ project, dimensions, material, style, styl
   );
 }
 
+function DimensionAnnotations({ primary, secondary, tertiary, onDrag }: { primary: StudioDimension; secondary: StudioDimension; tertiary: StudioDimension; onDrag: (event: PointerEvent<SVGCircleElement>, dimension: StudioDimension, axis: "x" | "y") => void }) {
+  return (
+    <g className="studio-dimensions">
+      <DimensionGuide x1={140} y1={430} x2={720} y2={430} label={`${primary.label}: ${primary.value}″`} labelX={430} labelY={456} />
+      <DimensionGuide x1={96} y1={120} x2={96} y2={364} label={`${tertiary.label}: ${tertiary.value}″`} labelX={118} labelY={242} vertical />
+      <DimensionGuide x1={612} y1={88} x2={742} y2={88} label={`${secondary.label}: ${secondary.value}″`} labelX={677} labelY={66} />
+      <DimensionHandle x={140} y={430} dimension={primary} axis="x" onDrag={onDrag} />
+      <DimensionHandle x={720} y={430} dimension={primary} axis="x" onDrag={onDrag} />
+      <DimensionHandle x={96} y={120} dimension={tertiary} axis="y" onDrag={onDrag} />
+      <DimensionHandle x={96} y={364} dimension={tertiary} axis="y" onDrag={onDrag} />
+      <DimensionHandle x={612} y={88} dimension={secondary} axis="x" onDrag={onDrag} />
+      <DimensionHandle x={742} y={88} dimension={secondary} axis="x" onDrag={onDrag} />
+    </g>
+  );
+}
+
+function DimensionHandle({ x, y, dimension, axis, onDrag }: { x: number; y: number; dimension: StudioDimension; axis: "x" | "y"; onDrag: (event: PointerEvent<SVGCircleElement>, dimension: StudioDimension, axis: "x" | "y") => void }) {
+  return <g className="studio-dimension-handle"><circle cx={x} cy={y} r="22" fill="transparent" onPointerDown={(event) => onDrag(event, dimension, axis)} /><circle cx={x} cy={y} r="6" fill="#f7fbff" stroke="#58664a" strokeWidth="3" pointerEvents="none" /></g>;
+}
+
 function InspectorRow({ label, value }: { label: string; value: string }) {
   return <div className="flex items-center justify-between rounded-2xl border border-[#dfd0bf] bg-white px-4 py-3 text-sm"><span className="font-bold text-[#80634e]">{label}</span><span className="capitalize text-[#2f2924]">{value}</span></div>;
 }
 
-function DimensionGuide({ x1, y1, x2, y2, label, vertical = false }: { x1: number; y1: number; x2: number; y2: number; label: string; vertical?: boolean }) {
-  return <g opacity="0.9"><line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#f7fbff" strokeWidth="2" strokeDasharray="6 6" /><circle cx={x1} cy={y1} r="5" fill="#f7fbff" /><circle cx={x2} cy={y2} r="5" fill="#f7fbff" /><text x={vertical ? x1 + 14 : (x1 + x2) / 2} y={vertical ? (y1 + y2) / 2 : y1 - 12} textAnchor={vertical ? "start" : "middle"} fill="#f7fbff" fontSize="15" fontWeight="800">{label}</text></g>;
+function DimensionGuide({ x1, y1, x2, y2, label, labelX, labelY, vertical = false }: { x1: number; y1: number; x2: number; y2: number; label: string; labelX: number; labelY: number; vertical?: boolean }) {
+  const width = Math.max(80, label.length * 7.5);
+  return <g className="studio-dimension-guide" opacity="0.92" pointerEvents="none"><line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#f7fbff" strokeWidth="2" strokeDasharray="6 6" /><line x1={x1} y1={vertical ? y1 - 14 : y1 - 14} x2={x1} y2={vertical ? y1 + 14 : y1 + 14} stroke="#f7fbff" strokeWidth="2" /><line x1={x2} y1={vertical ? y2 - 14 : y2 - 14} x2={x2} y2={vertical ? y2 + 14 : y2 + 14} stroke="#f7fbff" strokeWidth="2" /><rect x={labelX - width / 2} y={labelY - 15} width={width} height="24" rx="8" fill="rgba(41,55,43,0.86)" stroke="rgba(255,255,255,0.55)" /><text x={labelX} y={labelY + 1} textAnchor="middle" fill="#f7fbff" fontSize="13" fontWeight="800">{label}</text></g>;
 }
 
 function TableSvg({ fill, styleName }: { fill: string; styleName: string }) {
