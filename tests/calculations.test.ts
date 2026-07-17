@@ -54,6 +54,27 @@ test("Outdoor Bench accepts exact boundaries and rejects invalid dimensions", ()
   assert.throws(() => generateBenchPlan(invalid), RangeError);
 });
 
+
+
+test("style-aware bench planning keeps deterministic slat and park hardware rules", () => {
+  const base = { length: 60, depth: 18, seatHeight: 18, wood: "pine" as const };
+  const modern = generateBenchPlan({ ...base, style: "modern" });
+  const park = generateBenchPlan({ ...base, style: "park" });
+  const modernSeat = modern.cutList.find((piece) => piece.name === "Seat Board");
+  const parkSeat = park.cutList.find((piece) => piece.name === "Seat Board");
+  assert.equal(modernSeat?.quantity, 6);
+  assert.equal(parkSeat?.quantity, 6);
+  assert.ok(park.hardware.some((item) => item.name.includes("Carriage Bolts") && item.quantity === 8));
+});
+
+test("expanded table styles remain deterministic and calculation-safe", () => {
+  for (const style of ["modern", "farmhouse", "craftsman", "rustic"] as const) {
+    const plan = generateTablePlan({ length: 72, width: 36, height: 30, wood: "cedar", style });
+    assert.equal(plan.inputs.style, style);
+    assert.equal(plan.cutList.find((piece) => piece.name === "Tabletop Board")?.quantity, 7);
+  }
+});
+
 test("material multipliers deterministically increase lumber pricing", () => {
   const base = { length: 60, depth: 18, seatHeight: 18 };
   const pine = generateBenchPlan({ ...base, wood: "pine" });
