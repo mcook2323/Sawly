@@ -8,6 +8,7 @@ import { DimensionConfiguration, type DimensionField } from "@/components/Dimens
 import { OutdoorTableGalleryVisual } from "@/components/OutdoorTableGalleryVisual";
 import { PlanTabs } from "@/components/PlanTabs";
 import { ProjectGallery } from "@/components/ProjectGallery";
+import { PremiumDesignStudio } from "@/components/PremiumDesignStudio";
 import { ProjectPageShell } from "@/components/ProjectPageShell";
 import { ProjectTrustNotice } from "@/components/ProjectTrustNotice";
 import { SaveProjectButton } from "@/components/SaveProjectButton";
@@ -28,7 +29,7 @@ export default function OutdoorTablePage() {
   const [widthInput, setWidthInput] = useState("36");
   const [heightInput, setHeightInput] = useState("30");
   const [wood, setWood] = useState<WoodMaterial>("pine");
-  const [style, setStyle] = useState<"modern" | "farmhouse">("modern");
+  const [style, setStyle] = useState<"modern" | "farmhouse" | "craftsman" | "rustic">("modern");
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -36,13 +37,15 @@ export default function OutdoorTablePage() {
       const id = params.get("saved");
       const saved = id ? readSavedProjects().find((item) => item.id === id && item.projectType === "outdoor-table") : null;
       if (saved) {
-        setLengthInput(String(saved.dimensions.length)); setWidthInput(String(saved.dimensions.width)); setHeightInput(String(saved.dimensions.height)); setWood(saved.material); if (saved.style === "farmhouse") setStyle("farmhouse"); return;
+        setLengthInput(String(saved.dimensions.length)); setWidthInput(String(saved.dimensions.width)); setHeightInput(String(saved.dimensions.height)); setWood(saved.material); if (saved.style === "modern" || saved.style === "farmhouse" || saved.style === "craftsman" || saved.style === "rustic") setStyle(saved.style); return;
       }
       const material = params.get("material");
       if (params.get("length")) setLengthInput(params.get("length")!);
       if (params.get("width")) setWidthInput(params.get("width")!);
       if (params.get("height")) setHeightInput(params.get("height")!);
       if (material === "pine" || material === "cedar" || material === "treated") setWood(material);
+      const styleParam = params.get("style");
+      if (styleParam === "modern" || styleParam === "farmhouse" || styleParam === "craftsman" || styleParam === "rustic") setStyle(styleParam);
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
@@ -70,8 +73,9 @@ export default function OutdoorTablePage() {
       summaryDetails={[{ label: "Build time", value: "6–8 hours" }, { label: "Difficulty", value: "Intermediate" }, { label: "Seats", value: `${seats} people` }, { label: "Lumber", value: plan ? `${lumberCount} pieces` : "—" }]}
       headerAction={<SaveProjectButton projectType="outdoor-table" projectName="Modern Outdoor Table" dimensions={dimensions} material={wood} style={style} disabled={!valid} />}
       gallery={<ProjectGallery items={OUTDOOR_TABLE_GALLERY_ITEMS} ariaLabel="Outdoor Table views" renderItem={(item, thumbnail) => <OutdoorTableGalleryVisual view={item.view} {...dimensions} wood={wood} thumbnail={thumbnail} />} />}
-      configuration={<DimensionConfiguration fields={fields} material={wood} onMaterialChange={setWood} style={style} styleOptions={[{ value: "modern", label: "Modern" }, { value: "farmhouse", label: "Farmhouse" }]} onStyleChange={(value) => setStyle(value as "modern" | "farmhouse")} seatingPresets={seatingPresets} onApplySeating={(value) => setLengthInput(String(value))} />}
+      configuration={<DimensionConfiguration fields={fields} material={wood} onMaterialChange={setWood} style={style} styleOptions={[{ value: "modern", label: "Modern" }, { value: "farmhouse", label: "Farmhouse" }, { value: "craftsman", label: "Craftsman" }, { value: "rustic", label: "Rustic" }]} onStyleChange={(value) => setStyle(value as typeof style)} seatingPresets={seatingPresets} onApplySeating={(value) => setLengthInput(String(value))} />}
     >
+      <PremiumDesignStudio project="table" dimensions={[{ key: "length", label: "Length", value: dimensions.length, ...TABLE_DIMENSION_LIMITS.length, onChange: setLengthInput }, { key: "width", label: "Width", value: dimensions.width, ...TABLE_DIMENSION_LIMITS.width, onChange: setWidthInput }, { key: "height", label: "Height", value: dimensions.height, ...TABLE_DIMENSION_LIMITS.height, onChange: setHeightInput }]} material={wood} style={style} styleOptions={[{ value: "modern", label: "Modern" }, { value: "farmhouse", label: "Farmhouse" }, { value: "craftsman", label: "Craftsman" }, { value: "rustic", label: "Rustic" }]} onStyleChange={(value) => setStyle(value as typeof style)} />
       {plan && shoppingList ? (
         <>
           <div className="print-hide mt-8"><ProjectTrustNotice /></div>

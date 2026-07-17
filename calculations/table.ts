@@ -23,7 +23,7 @@ export interface TableInputs {
   width: number; // inches
   height: number; // inches
   wood: WoodMaterial;
-  style: "modern" | "farmhouse";
+  style: "modern" | "farmhouse" | "craftsman" | "rustic";
 }
 
 export interface GeneratedTablePlan extends GeneratedProjectPlan {
