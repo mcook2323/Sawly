@@ -16,11 +16,14 @@ export const BENCH_DIMENSION_LIMITS = {
   seatHeight: { min: 16, max: 20 },
 } as const;
 
+export type BenchStyle = "modern" | "park" | "farmhouse" | "minimal";
+
 export interface BenchInputs {
   length: number;
   depth: number;
   seatHeight: number;
   wood: WoodMaterial;
+  style?: BenchStyle;
 }
 
 export interface GeneratedBenchPlan extends GeneratedProjectPlan {
@@ -51,7 +54,9 @@ export function generateBenchPlan(inputs: BenchInputs): GeneratedBenchPlan {
   const legLength = inputs.seatHeight - SEAT_BOARD_THICKNESS;
   const longApronLength = inputs.length - LEG_INSET_TOTAL;
   const shortApronLength = inputs.depth - LEG_INSET_TOTAL;
-  const seatBoardCount = Math.ceil(inputs.depth / SEAT_BOARD_WIDTH);
+  const style = inputs.style ?? "modern";
+  const slatGapAllowance = style === "park" ? 0.75 : style === "minimal" ? 0.25 : 0;
+  const seatBoardCount = Math.max(3, Math.ceil((inputs.depth + slatGapAllowance) / SEAT_BOARD_WIDTH));
 
   return {
     projectType: "outdoor-bench",
@@ -70,7 +75,8 @@ export function generateBenchPlan(inputs: BenchInputs): GeneratedBenchPlan {
       { name: "Seat Board", quantity: seatBoardCount, thickness: SEAT_BOARD_THICKNESS, width: SEAT_BOARD_WIDTH, length: inputs.length, material: inputs.wood },
     ],
     hardware: [
-      { name: '2.5" Exterior Wood Screws', quantity: 40 },
+      { name: '2.5" Exterior Wood Screws', quantity: style === "park" ? 32 : 40 },
+      ...(style === "park" ? [{ name: '3/8" Galvanized Carriage Bolts', quantity: 8 }] : []),
       { name: "Exterior Wood Glue", quantity: 1 },
     ],
   };

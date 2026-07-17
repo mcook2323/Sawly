@@ -247,3 +247,46 @@ input {
     background: #fafafa;
   }
 }
+
+.premium-studio {
+  background:
+    radial-gradient(circle at 8% 0%, rgba(155, 91, 69, 0.12), transparent 20rem),
+    linear-gradient(135deg, #fffdfa 0%, #f7efe5 100%);
+}
+
+.premium-lifestyle {
+  background:
+    radial-gradient(circle at 76% 16%, rgba(255, 243, 203, 0.9), transparent 12rem),
+    linear-gradient(to bottom, rgba(190, 216, 221, 0.58) 0 48%, transparent 48%),
+    linear-gradient(135deg, #eadbc7, #cbb79d);
+}
+
+.studio-tool {
+  border-radius: 999px;
+  padding: 0.45rem 0.7rem;
+  color: #55483d;
+  font-size: 0.75rem;
+  font-weight: 800;
+  transition: background var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
+}
+
+.studio-tool:hover {
+  background: var(--color-brand-soft);
+  color: var(--color-brand-hover);
+  transform: translateY(-1px);
+}
+
+.studio-dimension-guide,
+.studio-dimension-guide * {
+  pointer-events: none;
+}
+
+.studio-dimension-handle {
+  pointer-events: auto;
+}
+
+@media (max-width: 640px) {
+  .studio-dimension-guide text {
+    font-size: 11px;
+  }
+}
