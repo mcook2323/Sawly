@@ -18,6 +18,8 @@ export function getOutdoorBenchBuildSteps(plan: GeneratedBenchPlan): BuildStep[]
   const shortApron = part("Short Apron");
   const seat = part("Seat Board");
   const finishing = getFinishingGuidance(plan.material);
+  const style = plan.inputs.style ?? "modern";
+  const slatGuidance = style === "minimal" ? "tight refined spacing" : style === "park" ? "wider drainage spacing" : style === "farmhouse" ? "classic half-inch spacing" : "even modern spacing";
   return [
     { number: 1, title: "Inspect and organize the lumber", instructions: `Lay out the ${material.toLowerCase()} and reject badly twisted, split, or damaged boards. Group the best faces for the seat.`, parts: ["Shopping list lumber", "Tape measure", "Pencil"], note: { type: "tip", text: "Mark every piece with its cut-list name before cutting." } },
     { number: 2, title: "Verify the configured measurements", instructions: `Confirm the finished bench will be ${plan.inputs.length}\" long, ${plan.inputs.depth}\" deep, and ${plan.inputs.seatHeight}\" high. Compare actual lumber dimensions with the plan.`, parts: ["Generated plan", "Tape measure", "Speed square"], note: { type: "caution", text: "Nominal lumber sizes may differ from actual dimensions; measure the boards you purchased." } },
@@ -25,7 +27,7 @@ export function getOutdoorBenchBuildSteps(plan: GeneratedBenchPlan): BuildStep[]
     { number: 4, title: "Assemble the two end frames", instructions: `Position one ${shortApron.length}\" short apron between each pair of legs. Keep the apron tops aligned, apply exterior glue, clamp, and fasten with exterior screws.`, parts: ["4 Legs", "2 Short Aprons", "Exterior Wood Glue", "Exterior Screws"] },
     { number: 5, title: "Join the end frames", instructions: `Connect the end frames with the two ${longApron.length}\" long aprons. Clamp on a flat surface and drive the specified exterior screws only after the top edges are flush.`, parts: ["2 End Frames", "2 Long Aprons", "Exterior Wood Glue", "Exterior Screws"] },
     { number: 6, title: "Square and verify the frame", instructions: "Measure both frame diagonals and adjust until they match. Check that all four legs sit flat before the glue cures.", parts: ["Bench Frame", "Tape Measure", "Clamps"], note: { type: "caution", text: "Do not install the seat on a racked or rocking frame." } },
-    { number: 7, title: "Install the seat boards", instructions: `Arrange all ${seat.quantity} seat boards with even drainage gaps and flush ends. Pre-drill where needed, then fasten each board into the apron frame.`, parts: [`${seat.quantity} Seat Boards`, "Exterior Screws", "Equal Spacers"], note: { type: "tip", text: "Use identical spacers to keep the slat layout consistent." } },
+    { number: 7, title: "Install the seat boards", instructions: `Arrange all ${seat.quantity} seat boards with ${slatGuidance} and flush ends. Pre-drill where needed, then fasten each board into the apron frame.`, parts: [`${seat.quantity} Seat Boards`, "Exterior Screws", "Equal Spacers"], note: { type: "tip", text: "Use identical spacers to keep the slat layout consistent." } },
     { number: 8, title: "Sand and ease exposed edges", instructions: "Sand the seat, frame, legs, cut ends, and corners. Remove splinters and sharp edges without rounding fitted joints excessively.", parts: ["Assembled Bench", "Sandpaper or Sander"], note: { type: "caution", text: "Wear suitable dust protection and remove dust before finishing." } },
     { number: 9, title: "Apply an outdoor finish", instructions: finishing.instructions, parts: [`${material} Bench`, "Exterior-rated Finish"], note: finishing.note },
     { number: 10, title: "Complete the stability and safety check", instructions: "After the finish cures, place the bench on a level surface. Check for rocking, loose fasteners, sharp edges, or movement before sitting on it.", parts: ["Finished Bench", "Driver for Final Adjustments"], note: { type: "caution", text: "This DIY plan is not structural engineering certification; use appropriate judgment and stop using a bench that loosens or moves." } },
@@ -83,6 +85,8 @@ export function getOutdoorTableBuildSteps(
   const longApron = part("Long Apron");
   const shortApron = part("Short Apron");
   const tabletop = part("Tabletop Board");
+  const style = plan.inputs.style;
+  const edgeGuidance = style === "craftsman" ? "Add a light bevel to visible tabletop edges before final sanding." : style === "rustic" ? "Break the edges by hand for a subtly weathered profile before finishing." : style === "farmhouse" ? "Soften the tabletop perimeter to match the farmhouse preset." : "Keep the edges crisp with a small roundover for the modern preset.";
 
   return [
     {
@@ -150,7 +154,7 @@ export function getOutdoorTableBuildSteps(
       number: 7,
       title: "Sand all surfaces and edges",
       instructions:
-        "Sand the tabletop, frame, legs, cut ends, and exposed edges until they feel smooth. Ease sharp corners without changing the fitted joint surfaces.",
+        `Sand the tabletop, frame, legs, cut ends, and exposed edges until they feel smooth. ${edgeGuidance} Ease sharp corners without changing the fitted joint surfaces.`,
       parts: ["Assembled table", "Sandpaper or sander"],
       note: {
         type: "caution",

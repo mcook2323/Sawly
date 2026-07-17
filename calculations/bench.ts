@@ -21,6 +21,7 @@ export interface BenchInputs {
   depth: number;
   seatHeight: number;
   wood: WoodMaterial;
+  style?: "modern" | "park" | "farmhouse" | "minimal";
 }
 
 export interface GeneratedBenchPlan extends GeneratedProjectPlan {
@@ -51,7 +52,9 @@ export function generateBenchPlan(inputs: BenchInputs): GeneratedBenchPlan {
   const legLength = inputs.seatHeight - SEAT_BOARD_THICKNESS;
   const longApronLength = inputs.length - LEG_INSET_TOTAL;
   const shortApronLength = inputs.depth - LEG_INSET_TOTAL;
-  const seatBoardCount = Math.ceil(inputs.depth / SEAT_BOARD_WIDTH);
+  const style = inputs.style ?? "modern";
+  const slatGap = style === "minimal" ? 0.375 : style === "park" ? 0.75 : style === "farmhouse" ? 0.5 : 0.625;
+  const seatBoardCount = Math.ceil((inputs.depth + slatGap) / (SEAT_BOARD_WIDTH + slatGap));
 
   return {
     projectType: "outdoor-bench",
@@ -70,7 +73,7 @@ export function generateBenchPlan(inputs: BenchInputs): GeneratedBenchPlan {
       { name: "Seat Board", quantity: seatBoardCount, thickness: SEAT_BOARD_THICKNESS, width: SEAT_BOARD_WIDTH, length: inputs.length, material: inputs.wood },
     ],
     hardware: [
-      { name: '2.5" Exterior Wood Screws', quantity: 40 },
+      { name: '2.5" Exterior Wood Screws', quantity: style === "park" ? 48 : 40 },
       { name: "Exterior Wood Glue", quantity: 1 },
     ],
   };

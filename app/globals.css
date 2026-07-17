@@ -247,3 +247,10 @@ input {
     background: #fafafa;
   }
 }
+
+.studio-shell { animation: studio-rise 520ms var(--transition-smooth) both; }
+.studio-lifestyle { background: radial-gradient(circle at 80% 14%, rgba(244,217,154,.65), transparent 16rem), linear-gradient(135deg, #f2eadf, #dfcfb8); }
+.studio-pill { border: 1px solid rgba(255,255,255,.72); border-radius: var(--radius-pill); background: rgba(255,255,255,.78); padding: .55rem .85rem; font-size: .75rem; font-weight: 800; color: var(--color-ink-muted); box-shadow: var(--shadow-sm); backdrop-filter: blur(14px); transition: transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast); }
+.studio-pill:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.studio-pill-active { background: var(--color-brand); color: white; }
+@keyframes studio-rise { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: none; } }
