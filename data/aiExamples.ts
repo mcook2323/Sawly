@@ -1,8 +1,11 @@
 export const AI_EXAMPLE_PROMPTS = [
-  "Modern dining table for 8",
-  "Garage workbench with drawers",
+  "Modern TV stand",
+  "Backyard pergola",
+  "Indoor toddler climbing gym",
+  "Chicken coop",
+  "Garage cabinets",
+  "Farmhouse dining table",
+  "Built-in bookshelves",
   "Outdoor kitchen",
-  "Mudroom bench",
-  "Pergola",
-  "Built-in bookshelf",
+  "Treehouse",
 ] as const;

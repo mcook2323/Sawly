@@ -36,6 +36,8 @@ import { adaptOutdoorBenchPlan, adaptOutdoorTablePlan } from "../lib/projects/ve
 import { validateUniversalProject } from "../lib/projects/universalProject";
 import { FREESTANDING_PERGOLA_EXAMPLE, RAISED_PLAYHOUSE_EXAMPLE, STORAGE_CABINET_EXAMPLE } from "../data/universalProjectExamples";
 import { PROJECT_CATEGORIES } from "../types/universalProject";
+import { classifyProject, createUniversalDraft, generateProjectConcepts, planProjectRequest } from "../lib/ai/projectPlanner";
+import { ConceptOnlyPlanRouter, ConservativeFinalValidationLayer, DeterministicConceptGenerator, DeterministicRequestClassifier, DeterministicRequirementsCollector, PlaceholderSafetyAndRiskReviewer } from "../lib/ai/pipeline";
 
 test("Outdoor Table accepts exact boundaries and rejects invalid dimensions", () => {
   for (const length of [TABLE_DIMENSION_LIMITS.length.min, TABLE_DIMENSION_LIMITS.length.max]) {
@@ -576,4 +578,112 @@ test("universal project categories cover the intended wood-project families", ()
   assert.deepEqual(PROJECT_CATEGORIES, ["Furniture", "Storage", "Cabinetry", "Outdoor Structure", "Play Structure", "Landscape", "Workshop", "Architectural"]);
   const moderate = { ...STORAGE_CABINET_EXAMPLE, id: "example:anchored-storage", riskTier: "moderately-structural" as const };
   assert.equal(validateUniversalProject(moderate).valid, true);
+});
+
+test("AI project planner classifies wood-project families and risk deterministically", () => {
+  assert.deepEqual(
+    ["Modern TV stand", "Garage cabinets", "Backyard pergola", "Indoor toddler climbing gym"].map((prompt) => {
+      const result = classifyProject(prompt);
+      return [result.category, result.projectType, result.riskTier];
+    }),
+    [
+      ["Furniture", "tv-stand", "nonstructural"],
+      ["Cabinetry", "cabinet", "moderately-structural"],
+      ["Outdoor Structure", "pergola", "code-sensitive"],
+      ["Play Structure", "climbing-gym", "code-sensitive"],
+    ],
+  );
+});
+
+test("AI planner asks exactly one relevant follow-up at a time", () => {
+  const initial = planProjectRequest("I want a cedar pergola");
+  assert.equal(initial.nextQuestion?.id, "dimensions");
+  assert.equal(initial.profile.environment, "outdoor");
+  assert.equal(initial.profile.intendedUse, "Shade and outdoor living");
+  assert.deepEqual(initial.profile.materials, ["cedar"]);
+
+  const sized = planProjectRequest("I want a cedar pergola", { dimensions: "14x18" });
+  assert.equal(sized.nextQuestion?.id, "attachment");
+  assert.equal(sized.profile.dimensions.length?.value, 168);
+  assert.equal(sized.profile.dimensions.width?.value, 216);
+
+  const attached = planProjectRequest("I want a cedar pergola", { dimensions: "14x18", attachment: "freestanding" });
+  assert.equal(attached.nextQuestion?.id, "roof");
+});
+
+test("AI planner creates three distinct deterministic concepts when fields are complete", () => {
+  const result = planProjectRequest("Modern cedar TV stand 72x18x24 inches", {
+    environment: "indoor",
+    intendedUse: "Media storage",
+  });
+  assert.equal(result.complete, true);
+  const concepts = generateProjectConcepts(result.profile);
+  assert.equal(concepts.length, 3);
+  assert.equal(new Set(concepts.map((concept) => concept.style)).size, 3);
+  assert.ok(concepts.every((concept) => concept.keyFeatures.length === 3));
+});
+
+test("selected AI concept becomes a valid UniversalWoodProject draft without construction output", () => {
+  const result = planProjectRequest("Cedar pergola 14x18", {
+    attachment: "freestanding",
+    roof: "slatted",
+    style: "craftsman",
+  });
+  assert.equal(result.complete, true);
+  const concept = generateProjectConcepts(result.profile)[0];
+  const project = createUniversalDraft(result.profile, concept);
+  assert.equal(validateUniversalProject(project).valid, true);
+  assert.equal(project.verificationStatus, "requires-specialist-review");
+  assert.equal(project.source.kind, "concept");
+  assert.deepEqual(project.cutList, []);
+  assert.deepEqual(project.connections, []);
+  assert.deepEqual(project.buildSteps, []);
+  assert.match(project.warnings[0].message, /engineering and\/or local code verification/);
+});
+
+test("AI planning leaves verified table and bench calculations unchanged", () => {
+  const tableInputs = { length: 84, width: 36, height: 30, wood: "cedar" as const, style: "craftsman" as const };
+  const benchInputs = { length: 72, depth: 18, seatHeight: 18, wood: "pine" as const, style: "park" as const };
+  const tableBefore = generateTablePlan(tableInputs);
+  const benchBefore = generateBenchPlan(benchInputs);
+  planProjectRequest("Farmhouse dining table");
+  planProjectRequest("Outdoor bench");
+  assert.deepEqual(generateTablePlan(tableInputs), tableBefore);
+  assert.deepEqual(generateBenchPlan(benchInputs), benchBefore);
+});
+
+test("AI pipeline layers exchange validated structured artifacts", () => {
+  const classifier = new DeterministicRequestClassifier();
+  const collector = new DeterministicRequirementsCollector();
+  const generator = new DeterministicConceptGenerator();
+  const classification = classifier.classify("Modern cedar TV stand 72x18x24 inches");
+  assert.equal(classification.kind, "request-classification");
+  assert.equal(classification.producedBy, "request-classifier");
+  const requirements = collector.collect({ prompt: "Modern cedar TV stand 72x18x24 inches", classification, answers: { environment: "indoor", intendedUse: "Media storage" } });
+  assert.equal(requirements.profile.kind, "requirements-profile");
+  assert.equal(requirements.complete, true);
+  const concepts = generator.generate({ profile: requirements.profile, count: 3 });
+  assert.equal(concepts.kind, "concept-set");
+  assert.equal(concepts.data.concepts.length, 3);
+});
+
+test("AI pipeline rejects mismatched artifacts instead of trusting cross-layer input", () => {
+  const classifier = new DeterministicRequestClassifier();
+  const collector = new DeterministicRequirementsCollector();
+  const classification = classifier.classify("cedar pergola");
+  assert.throws(() => collector.collect({ prompt: "garage cabinets", classification, answers: {} }), /does not match/);
+  assert.throws(() => new DeterministicConceptGenerator().generate({ profile: { ...classification, kind: "requirements-profile", producedBy: "requirements-collector", data: {} } as never, count: 3 }), /incomplete/);
+});
+
+test("future AI layers default to conservative concept-only boundaries", () => {
+  const result = planProjectRequest("Cedar pergola 14x18", { attachment: "freestanding", roof: "slatted", style: "craftsman" });
+  const profile = { schemaVersion: 1 as const, kind: "requirements-profile" as const, producedBy: "requirements-collector" as const, data: result.profile };
+  const project = createUniversalDraft(result.profile, generateProjectConcepts(result.profile)[0]);
+  const route = new ConceptOnlyPlanRouter().route(profile).data;
+  const safety = new PlaceholderSafetyAndRiskReviewer().review(project).data;
+  const validation = new ConservativeFinalValidationLayer().validate(project).data;
+  assert.equal(route.status, "concept-only");
+  assert.equal(route.allowsAIGeometry, false);
+  assert.equal(safety.claimsCodeCompliance, false);
+  assert.equal(validation.finalPlanAllowed, false);
 });
