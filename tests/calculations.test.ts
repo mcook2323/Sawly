@@ -46,6 +46,8 @@ import { canEditObject, validateDimensions, validateScene } from "../lib/visual-
 import { LocalVisualDraftPersistence, VISUAL_DRAFT_STORAGE_KEY } from "../lib/visual-designer/persistence";
 import { createConceptualExport } from "../lib/visual-designer/export";
 import { evaluateVisualConstraints } from "../lib/visual-designer/constraints";
+import { ConversationEditingService, createConversationEditHistory, emptyEditorMemory, redoConversationEdit, replayConversationEdits, resultToHistory, summarizeConversationEdits, undoConversationEdit, validateProjectEdits } from "../lib/ai/conversation-editor";
+import type { DimensionChange } from "../types/conversationEditor";
 
 test("Outdoor Table accepts exact boundaries and rejects invalid dimensions", () => {
   for (const length of [TABLE_DIMENSION_LIMITS.length.min, TABLE_DIMENSION_LIMITS.length.max]) {
@@ -782,4 +784,70 @@ test("concept export strips unverified construction content and labels the bound
   assert.deepEqual(exported.project.cutList, []);
   assert.deepEqual(exported.project.buildSteps, []);
   assert.ok(exported.excluded.includes("engineering-claims"));
+});
+
+function conversationalConcept() {
+  const plan = planProjectRequest("Modern walnut storage cabinet 48x20x72 inches", { environment: "indoor", intendedUse: "Storage", attachment: "freestanding" });
+  return createUniversalDraft(plan.profile, generateProjectConcepts(plan.profile)[0]);
+}
+
+test("conversation editor applies deterministic dimension and material edits", () => {
+  const service = new ConversationEditingService(); const project = conversationalConcept();
+  const taller = service.execute({ text: "Make it 8 inches taller.", project, memory: emptyEditorMemory(), now: "2026-07-17T12:00:00.000Z" });
+  assert.equal(taller.status, "applied"); assert.equal(taller.project.dimensions.height?.value, 80); assert.match(taller.explanation.summary, /height changed from 72 to 80/);
+  const cedar = service.execute({ text: "Use cedar.", project: taller.project, memory: taller.memory, now: "2026-07-17T12:01:00.000Z" });
+  assert.equal(cedar.status, "applied"); assert.ok(cedar.project.materials.every((material) => material.name === "cedar")); assert.deepEqual(cedar.memory.materials, ["cedar"]);
+});
+
+test("conversation editor splits and applies compound requests atomically", () => {
+  const result = new ConversationEditingService().execute({ text: "Make it 8 inches taller, switch to cedar, and make it farmhouse.", project: conversationalConcept(), memory: emptyEditorMemory(), now: "2026-07-17T12:00:00.000Z" });
+  assert.equal(result.status, "applied"); assert.equal(result.edits.length, 3); assert.equal(result.project.dimensions.height?.value, 80); assert.equal(result.project.materials[0]?.name, "cedar"); assert.equal(result.project.metadata.style, "farmhouse"); assert.equal(result.explanation.changes.length, 3);
+});
+
+test("ambiguous conversational edits ask exactly one clarification question", () => {
+  const result = new ConversationEditingService().execute({ text: "Make it wider.", project: conversationalConcept(), memory: emptyEditorMemory(), now: "2026-07-17T12:00:00.000Z" });
+  assert.equal(result.status, "clarification"); assert.equal(result.clarification?.id, "dimension-amount"); assert.match(result.clarification?.question ?? "", /How many inches/); assert.deepEqual(result.project, conversationalConcept());
+});
+
+test("conversation memory retains style, material, room, safety, budget, tools, and difficulty preferences", () => {
+  const result = new ConversationEditingService().execute({ text: "Make it farmhouse, use cedar, make it easier to build, make this safer for toddlers, fit inside a 10x12 room, set budget 900, I have a circular saw, and I have a drill.", project: conversationalConcept(), memory: emptyEditorMemory(), now: "2026-07-17T12:00:00.000Z" });
+  assert.equal(result.status, "applied"); assert.equal(result.memory.style, "farmhouse"); assert.deepEqual(result.memory.materials, ["cedar"]); assert.equal(result.memory.difficulty, "easier"); assert.equal(result.memory.safetyAudience, "toddlers"); assert.deepEqual(result.memory.roomSize, { width: 120, depth: 144 }); assert.equal(result.memory.budget, 900); assert.deepEqual(result.memory.toolAvailability, ["circular saw", "drill"]);
+});
+
+test("conversation validator rejects negative dimensions, missing targets, and conflicts", () => {
+  const project = conversationalConcept(); const base = { id: "negative", type: "dimension-change" as const, target: { scope: "project" as const }, reason: "test", confidence: 1, metadata: {}, timestamp: "2026-07-17T12:00:00.000Z", origin: "user" as const, axis: "height" as const, operation: "set" as const, value: -1, unit: "in" as const };
+  assert.equal(validateProjectEdits(project, [base]).issues[0]?.code, "invalid-value");
+  const missing = new ConversationEditingService().execute({ text: "Remove the left cabinet.", project, memory: emptyEditorMemory(), now: "2026-07-17T12:00:00.000Z" }); assert.equal(missing.status, "rejected"); assert.match(missing.explanation.reason, /could not find/);
+  const conflict: DimensionChange = { ...base, id: "conflict", value: 50 }; const validation = validateProjectEdits(project, [{ ...base, value: 40 }, conflict]); assert.ok(validation.issues.some((issue) => issue.code === "conflict"));
+});
+
+test("verified project conversational geometry edits route to deterministic generators", () => {
+  const project = adaptOutdoorTablePlan(generateTablePlan({ length: 72, width: 36, height: 30, wood: "pine", style: "modern" }));
+  const result = new ConversationEditingService().execute({ text: "Make it 8 inches taller.", project, memory: emptyEditorMemory(), now: "2026-07-17T12:00:00.000Z" });
+  assert.equal(result.status, "route-required"); assert.deepEqual(result.project, project); assert.match(result.explanation.summary, /deterministic generator/); assert.equal(result.project.verificationStatus, "verified-generator");
+});
+
+test("conversational history supports undo, redo, replay, and summaries", () => {
+  const service = new ConversationEditingService(); const project = conversationalConcept(); let history = createConversationEditHistory(project);
+  const result = service.execute({ text: "Use cedar.", project, memory: history.memory, now: "2026-07-17T12:00:00.000Z" }); history = resultToHistory(history, "Use cedar.", result, project);
+  assert.equal(history.past.length, 1); assert.match(summarizeConversationEdits(history), /1 conversation request/); assert.equal(replayConversationEdits(history).materials[0]?.name, "cedar");
+  const undone = undoConversationEdit(history); assert.equal(undone.project.materials[0]?.name, "walnut");
+  const redone = redoConversationEdit(undone.history); assert.equal(redone.project.materials[0]?.name, "cedar");
+});
+
+test("conversation additions flow through UniversalWoodProject before scene highlighting", () => {
+  const project = conversationalConcept(); const result = new ConversationEditingService().execute({ text: "Add another shelf.", project, memory: emptyEditorMemory(), now: "2026-07-17T12:00:00.000Z" });
+  assert.equal(result.status, "applied"); const added = result.project.components.find((component) => /conversation-added/i.test(component.role)); assert.ok(added); const scene = projectToScene(result.project); const object = scene.objects.find((item) => item.componentId === added?.id); assert.equal(object?.metadata.editStatus, "added"); assert.equal(result.project.cutList.length, 0); assert.equal(result.project.hardware.length, 0);
+});
+
+test("conversational safety edits preserve risk and verified-plan boundaries", () => {
+  const project = { ...RAISED_PLAYHOUSE_EXAMPLE, verificationStatus: "concept-only" as const, source: { kind: "concept" as const, id: "conversation-test", version: "1" }, cutList: [], hardware: [], connections: [], tools: [], buildSteps: [] };
+  const result = new ConversationEditingService().execute({ text: "Make this safer for toddlers.", project, memory: emptyEditorMemory(), now: "2026-07-17T12:00:00.000Z" });
+  assert.equal(result.status, "applied"); assert.equal(result.project.riskTier, "code-sensitive"); assert.equal(result.project.verificationStatus, "concept-only"); assert.ok(result.project.warnings.some((warning) => warning.code === "CONCEPT_SAFETY_TARGET")); assert.ok(result.project.warnings.some((warning) => warning.blocking));
+});
+
+test("conversation editing leaves deterministic Table and Bench calculations unchanged", () => {
+  const tableInputs = { length: 84, width: 36, height: 30, wood: "cedar" as const, style: "craftsman" as const }; const benchInputs = { length: 72, depth: 18, seatHeight: 18, wood: "pine" as const, style: "park" as const }; const table = generateTablePlan(tableInputs); const bench = generateBenchPlan(benchInputs);
+  new ConversationEditingService().execute({ text: "Make it 8 inches taller.", project: conversationalConcept(), memory: emptyEditorMemory(), now: "2026-07-17T12:00:00.000Z" });
+  assert.deepEqual(generateTablePlan(tableInputs), table); assert.deepEqual(generateBenchPlan(benchInputs), bench);
 });
