@@ -1,7 +1,7 @@
 import type { AIPlanningProfile, AIProjectConcept, PlannerAnswers, PlannerQuestion } from "./aiProjectDesigner";
 import type { ProjectCategory, ProjectRiskTier, UniversalWoodProject } from "./universalProject";
 
-export type PipelineLayer = "request-classifier" | "requirements-collector" | "concept-generator" | "safety-reviewer" | "plan-router" | "cost-estimator" | "instruction-generator" | "final-validator";
+export type PipelineLayer = "request-classifier" | "requirements-collector" | "concept-generator" | "conversation-editor" | "safety-reviewer" | "plan-router" | "cost-estimator" | "instruction-generator" | "final-validator";
 
 export interface StructuredArtifact<K extends string, T> {
   schemaVersion: 1;
