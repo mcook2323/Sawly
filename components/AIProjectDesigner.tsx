@@ -3,17 +3,16 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { BrandLogo } from "@/components/BrandLogo";
-import { PremiumDesignStudio } from "@/components/PremiumDesignStudio";
+import { UniversalVisualDesignerLazy } from "@/components/visual-designer/UniversalVisualDesignerLazy";
 import { SiteFooter } from "@/components/SiteFooter";
 import { Badge, Tag } from "@/components/ui/Badge";
 import { Button, buttonClassName } from "@/components/ui/Button";
 import { createUniversalDraft, generateProjectConcepts, planProjectRequest } from "@/lib/ai/projectPlanner";
 import { validateUniversalProject } from "@/lib/projects/universalProject";
 import type { AIProjectConcept, PlannerAnswers, PlannerQuestion, PlannerQuestionId } from "@/types/aiProjectDesigner";
-import type { WoodMaterial } from "@/calculations/materialCatalog";
+import type { UniversalWoodProject } from "@/types/universalProject";
 
 interface HistoryItem { id: PlannerQuestionId; question: string; answer: string; }
-const styles = ["modern", "farmhouse", "craftsman", "minimalist", "rustic", "contemporary"].map((value) => ({ value, label: value[0].toUpperCase() + value.slice(1) }));
 
 export function AIProjectDesigner({ initialPrompt }: { initialPrompt: string }) {
   const [prompt, setPrompt] = useState(initialPrompt);
@@ -23,7 +22,7 @@ export function AIProjectDesigner({ initialPrompt }: { initialPrompt: string }) 
   const [streamed, setStreamed] = useState("");
   const [typing, setTyping] = useState(false);
   const [selected, setSelected] = useState<AIProjectConcept | null>(null);
-  const [dimensionValues, setDimensionValues] = useState<Record<string, number>>({});
+  const [conceptProject, setConceptProject] = useState<UniversalWoodProject | null>(null);
   const planning = useMemo(() => prompt ? planProjectRequest(prompt, answers) : null, [answers, prompt]);
   const concepts = useMemo(() => planning?.complete ? generateProjectConcepts(planning.profile) : [], [planning]);
   const assistantText = planning ? planning.complete ? "I have enough information to create three safe concept directions. These are design drafts—not construction plans." : planning.nextQuestion?.prompt ?? "Tell me a little more about your project." : "Describe anything made primarily from wood, and I’ll help shape the idea one question at a time.";
@@ -35,17 +34,14 @@ export function AIProjectDesigner({ initialPrompt }: { initialPrompt: string }) 
     return () => { window.clearTimeout(start); window.clearInterval(timer); };
   }, [assistantText]);
 
-  function begin(event: FormEvent) { event.preventDefault(); const value = draftPrompt.trim().replace(/\s+/g, " "); if (!value) return; setPrompt(value); setAnswers({}); setHistory([]); setSelected(null); }
+  function begin(event: FormEvent) { event.preventDefault(); const value = draftPrompt.trim().replace(/\s+/g, " "); if (!value) return; setPrompt(value); setAnswers({}); setHistory([]); setSelected(null); setConceptProject(null); }
   function answerQuestion(value: string) { const question = planning?.nextQuestion; if (!question || typing) return; setAnswers((current) => ({ ...current, [question.id]: value })); setHistory((items) => [...items, { id: question.id, question: question.prompt, answer: value }]); }
-  function editAnswer(index: number) { const retained = history.slice(0, index); setHistory(retained); setAnswers(Object.fromEntries(retained.map((item) => [item.id, item.answer])) as PlannerAnswers); setSelected(null); }
+  function editAnswer(index: number) { const retained = history.slice(0, index); setHistory(retained); setAnswers(Object.fromEntries(retained.map((item) => [item.id, item.answer])) as PlannerAnswers); setSelected(null); setConceptProject(null); }
   function goBack() { if (!history.length) { setPrompt(""); return; } editAnswer(history.length - 1); }
-  function chooseConcept(concept: AIProjectConcept) { if (!planning) return; const project = createUniversalDraft(planning.profile, concept); if (!validateUniversalProject(project).valid) return; setSelected(concept); setDimensionValues(Object.fromEntries(Object.entries(project.dimensions).filter(([key]) => key !== "custom").map(([key, measure]) => [key, typeof measure === "object" && measure && "value" in measure ? measure.value : 0]))); }
+  function chooseConcept(concept: AIProjectConcept) { if (!planning) return; const project = createUniversalDraft(planning.profile, concept); if (!validateUniversalProject(project).valid) return; setSelected(concept); setConceptProject(project); }
 
-  if (selected && planning) {
-    const project = createUniversalDraft({ ...planning.profile, dimensions: { ...planning.profile.dimensions, ...Object.fromEntries(Object.entries(dimensionValues).map(([key, value]) => [key, { value, unit: "in" }])) } }, selected);
-    const length = dimensionValues.length || 72; const width = dimensionValues.width || dimensionValues.depth || 36; const height = dimensionValues.height || 30;
-    const material: WoodMaterial = planning.profile.materials.some((item) => /cedar/i.test(item)) ? "cedar" : planning.profile.materials.some((item) => /treated/i.test(item)) ? "treated" : "pine";
-    return <main className="min-h-screen bg-[var(--color-canvas)]"><Header /><div className="ds-container ds-section"><div className="flex flex-wrap items-center justify-between gap-4"><div><Badge tone={project.riskTier === "code-sensitive" ? "clay" : "muted"}>AI concept · not build-verified</Badge><h1 className="ds-heading mt-4">{project.name}</h1><p className="ds-body mt-2 max-w-3xl">{project.description}</p></div><Button variant="secondary" onClick={() => setSelected(null)}>Back to concepts</Button></div>{project.riskTier === "code-sensitive" && <div className="mt-6 rounded-[var(--radius-lg)] border border-[#dfb1a7] bg-[var(--color-clay-soft)] p-5 font-semibold text-[var(--color-danger)]">This project will require additional engineering and/or local code verification before build plans can be generated.</div>}<PremiumDesignStudio project={/bench|seating/.test(project.projectType) ? "bench" : "table"} dimensions={[{ key: "length", label: "Length", value: length, min: 12, max: 360, onChange: (value) => setDimensionValues((current) => ({ ...current, length: Number(value) || 0 })) }, { key: "width", label: "Width", value: width, min: 12, max: 360, onChange: (value) => setDimensionValues((current) => ({ ...current, width: Number(value) || 0 })) }, { key: "height", label: "Height", value: height, min: 12, max: 240, onChange: (value) => setDimensionValues((current) => ({ ...current, height: Number(value) || 0 })) }]} material={material} style={selected.style} styleOptions={styles} onStyleChange={(style) => setSelected((current) => current ? { ...current, style } : current)} versionALabel="Selected concept" versionBLabel="Size study" /><section className="ds-card mt-8 p-6"><h2 className="ds-subheading">Universal project draft</h2><p className="ds-body mt-2">Placeholder geometry only. Cut lists, connections, hardware, and build steps remain empty until a deterministic generator validates this project type.</p><div className="mt-5 flex flex-wrap gap-2"><Tag>{project.category}</Tag><Tag>{project.riskTier}</Tag><Tag>{project.environment.location}</Tag><Tag>{project.metadata.style ?? "Style pending"}</Tag></div></section></div><SiteFooter /></main>;
+  if (selected && conceptProject) {
+    return <main className="min-h-screen bg-[var(--color-canvas)]"><Header /><div className="ds-container ds-section"><div className="flex flex-wrap items-center justify-between gap-4"><div><Badge tone={conceptProject.riskTier === "code-sensitive" ? "clay" : "muted"}>AI concept · not build-verified</Badge><h1 className="ds-heading mt-4">{conceptProject.name}</h1><p className="ds-body mt-2 max-w-3xl">{conceptProject.description}</p></div><Button variant="secondary" onClick={() => { setSelected(null); setConceptProject(null); }}>Back to conversation and concepts</Button></div><div className="mt-8"><UniversalVisualDesignerLazy project={conceptProject} onProjectChange={setConceptProject} /></div><section className="ds-card mt-8 p-6"><h2 className="ds-subheading">Universal project draft</h2><p className="ds-body mt-2">Visual edits remain conceptual. Cut lists, connections, hardware, tools, and build steps stay empty until a deterministic project generator validates this project type.</p><div className="mt-5 flex flex-wrap gap-2"><Tag>{conceptProject.category}</Tag><Tag>{conceptProject.riskTier}</Tag><Tag>{conceptProject.environment.location}</Tag><Tag>{conceptProject.metadata.style ?? "Style pending"}</Tag></div></section></div><SiteFooter /></main>;
   }
 
   return <main className="min-h-screen bg-[var(--color-canvas)]"><Header /><div className="ds-container ds-section"><div className="mx-auto max-w-4xl"><p className="ds-eyebrow">AI Project Designer</p><h1 className="ds-display mt-4">What do you want to build?</h1><p className="ds-body mt-5 max-w-2xl text-lg">Describe anything made primarily from wood. Sawly will organize the idea, ask one question at a time, and create safe concept directions.</p>{!prompt && <form onSubmit={begin} className="ai-prompt-shell mt-9"><label htmlFor="project-designer-prompt" className="sr-only">Describe your wood project</label><textarea id="project-designer-prompt" value={draftPrompt} onChange={(event) => setDraftPrompt(event.target.value)} placeholder="Describe anything made of wood..." rows={4} className="ds-input min-h-36 resize-none text-lg leading-8" /><Button type="submit" className="mt-4 w-full sm:w-auto" disabled={!draftPrompt.trim()}>Generate Concepts</Button><div className="mt-5 flex flex-wrap gap-2">{["Modern TV stand", "Backyard pergola", "Indoor toddler climbing gym", "Chicken coop", "Garage cabinets", "Farmhouse dining table", "Built-in bookshelves", "Outdoor kitchen", "Treehouse"].map((example) => <button type="button" key={example} onClick={() => setDraftPrompt(example)} className="ds-tag cursor-pointer">{example}</button>)}</div></form>}
