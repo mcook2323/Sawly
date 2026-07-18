@@ -806,7 +806,58 @@ test("conversation editor splits and applies compound requests atomically", () =
 
 test("ambiguous conversational edits ask exactly one clarification question", () => {
   const result = new ConversationEditingService().execute({ text: "Make it wider.", project: conversationalConcept(), memory: emptyEditorMemory(), now: "2026-07-17T12:00:00.000Z" });
-  assert.equal(result.status, "clarification"); assert.equal(result.clarification?.id, "dimension-amount"); assert.match(result.clarification?.question ?? "", /How many inches/); assert.deepEqual(result.project, conversationalConcept());
+  assert.equal(result.status, "clarification"); assert.equal(result.clarification?.missingField, "amount"); assert.equal(result.clarification?.operation, "delta"); assert.match(result.clarification?.question ?? "", /How many inches/); assert.deepEqual(result.project, conversationalConcept());
+});
+
+test("pending width clarification resolves once as a relative edit and records one history entry", () => {
+  const service = new ConversationEditingService(); const project = conversationalConcept(); let history = createConversationEditHistory(project);
+  const pending = service.execute({ text: "Make it wider.", project, memory: history.memory, messageId: "width-request", now: "2026-07-18T12:00:00.000Z" });
+  assert.equal(pending.status, "clarification"); assert.equal(history.past.length, 0);
+  const resolved = service.execute({ text: "8 inches", project, memory: pending.memory, pendingClarification: pending.clarification, messageId: "width-answer", now: "2026-07-18T12:01:00.000Z" });
+  assert.equal(resolved.status, "applied"); assert.equal(resolved.project.dimensions.width?.value, (project.dimensions.width?.value ?? 0) + 8); assert.equal(resolved.clarification, null); assert.equal(resolved.edits.length, 1); assert.match(resolved.explanation.summary, /widened.*8 inches/i);
+  history = resultToHistory(history, "Make it wider.", resolved, project); assert.equal(history.past.length, 1); assert.deepEqual(history.past[0]?.clarification, { originalRequest: "make it wider.", question: "How many inches wider?", answer: "8 inches" });
+  const undone = undoConversationEdit(history); assert.equal(undone.project.dimensions.width?.value, project.dimensions.width?.value); const redone = redoConversationEdit(undone.history); assert.equal(redone.project.dimensions.width?.value, (project.dimensions.width?.value ?? 0) + 8);
+});
+
+test("clarification inherits units and accepts number words", () => {
+  const service = new ConversationEditingService(); const project = conversationalConcept();
+  const pending = service.execute({ text: "Make it taller.", project, memory: emptyEditorMemory(), now: "2026-07-18T12:00:00.000Z" });
+  const resolved = service.execute({ text: "six", project, memory: pending.memory, pendingClarification: pending.clarification, now: "2026-07-18T12:01:00.000Z" });
+  assert.equal(resolved.status, "applied"); assert.equal(resolved.project.dimensions.height?.value, (project.dimensions.height?.value ?? 0) + 6); assert.equal((resolved.edits[0] as DimensionChange).unit, "in");
+});
+
+test("component move clarification preserves target and direction", () => {
+  const baseProject = conversationalConcept(); const project = { ...baseProject, components: baseProject.components.map((component, index) => index === 0 ? { ...component, name: "Shelf" } : component) };
+  const service = new ConversationEditingService(); const pending = service.execute({ text: "Make the shelf lower.", project, memory: emptyEditorMemory(), now: "2026-07-18T12:00:00.000Z" });
+  assert.equal(pending.status, "clarification"); const resolved = service.execute({ text: "2 inches", project, memory: pending.memory, pendingClarification: pending.clarification, now: "2026-07-18T12:01:00.000Z" });
+  assert.equal(resolved.status, "applied"); assert.equal(resolved.edits[0]?.type, "component-move"); if (resolved.edits[0]?.type === "component-move") assert.equal(resolved.edits[0].value, -2); assert.match(resolved.explanation.summary, /shelf.*2 inches lower/i);
+});
+
+test("invalid and cancelled clarification answers preserve or clear pending state safely", () => {
+  const service = new ConversationEditingService(); const project = conversationalConcept(); const pending = service.execute({ text: "Make it wider.", project, memory: emptyEditorMemory(), now: "2026-07-18T12:00:00.000Z" });
+  const invalid = service.execute({ text: "A lot", project, memory: pending.memory, pendingClarification: pending.clarification, now: "2026-07-18T12:01:00.000Z" });
+  assert.equal(invalid.status, "clarification"); assert.ok(invalid.clarification); assert.match(invalid.explanation.summary, /specific amount/i); assert.deepEqual(invalid.project, project);
+  const cancelled = service.execute({ text: "never mind", project, memory: invalid.memory, pendingClarification: invalid.clarification, now: "2026-07-18T12:02:00.000Z" });
+  assert.equal(cancelled.status, "cancelled"); assert.equal(cancelled.clarification, null); assert.deepEqual(cancelled.project, project); assert.equal(cancelled.edits.length, 0);
+});
+
+test("absolute and relative width requests remain distinct", () => {
+  const service = new ConversationEditingService(); const project = conversationalConcept();
+  const absolute = service.execute({ text: "Make it 48 inches wide.", project, memory: emptyEditorMemory(), now: "2026-07-18T12:00:00.000Z" }); assert.equal(absolute.status, "applied"); assert.equal(absolute.project.dimensions.width?.value, 48); if (absolute.edits[0]?.type === "dimension-change") assert.equal(absolute.edits[0].operation, "set");
+  const relative = service.execute({ text: "Make it 8 inches wider.", project, memory: emptyEditorMemory(), now: "2026-07-18T12:01:00.000Z" }); assert.equal(relative.status, "applied"); assert.equal(relative.project.dimensions.width?.value, (project.dimensions.width?.value ?? 0) + 8); if (relative.edits[0]?.type === "dimension-change") assert.equal(relative.edits[0].operation, "delta");
+});
+
+test("duplicate clarification message IDs cannot apply an edit twice", () => {
+  const service = new ConversationEditingService(); const project = conversationalConcept(); const pending = service.execute({ text: "Make it wider.", project, memory: emptyEditorMemory(), messageId: "request", now: "2026-07-18T12:00:00.000Z" });
+  const first = service.execute({ text: "8", project, memory: pending.memory, pendingClarification: pending.clarification, messageId: "answer", now: "2026-07-18T12:01:00.000Z" }); assert.equal(first.status, "applied");
+  const duplicate = service.execute({ text: "8", project: first.project, memory: first.memory, pendingClarification: pending.clarification, messageId: "answer", now: "2026-07-18T12:01:00.000Z" }); assert.equal(duplicate.status, "duplicate"); assert.equal(duplicate.project.dimensions.width?.value, first.project.dimensions.width?.value); assert.equal(duplicate.edits.length, 0);
+});
+
+test("compound clarification retains valid edits and applies one atomic history entry", () => {
+  const service = new ConversationEditingService(); const project = conversationalConcept(); let history = createConversationEditHistory(project);
+  const pending = service.execute({ text: "Use cedar and make it wider.", project, memory: history.memory, now: "2026-07-18T12:00:00.000Z" }); assert.equal(pending.status, "clarification"); assert.equal(pending.clarification?.retainedEdits.length, 1);
+  const resolved = service.execute({ text: "by 8", project, memory: pending.memory, pendingClarification: pending.clarification, now: "2026-07-18T12:01:00.000Z" }); assert.equal(resolved.status, "applied"); assert.equal(resolved.edits.length, 2); assert.equal(resolved.project.materials[0]?.name, "cedar"); assert.equal(resolved.project.dimensions.width?.value, (project.dimensions.width?.value ?? 0) + 8);
+  history = resultToHistory(history, "Use cedar and make it wider.", resolved, project); assert.equal(history.past.length, 1); assert.equal(history.past[0]?.edits.length, 2);
 });
 
 test("conversation memory retains style, material, room, safety, budget, tools, and difficulty preferences", () => {

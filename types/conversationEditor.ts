@@ -23,13 +23,37 @@ export interface StorageChange extends ProjectEditBase { type: "storage-change";
 export type StructuredProjectEdit = DimensionChange | MaterialChange | FinishChange | ComponentAdd | ComponentRemove | ComponentMove | ComponentResize | ComponentRename | StyleChange | ConstraintChange | BudgetTarget | DifficultyTarget | SafetyTarget | EnvironmentChange | StorageChange;
 
 export interface EditorMemory { style: string | null; budget: number | null; budgetDirection: "lower" | null; materials: string[]; roomSize: { width: number; depth: number } | null; safetyAudience: string | null; difficulty: string | null; toolAvailability: string[]; previousEditIds: string[]; }
-export interface EditClarification { id: string; question: string; reason: string; pendingRequest: string; options?: string[]; }
-export interface ConversationEditRequest { text: string; project: UniversalWoodProject; memory: EditorMemory; selectedComponentId?: string | null; now?: string; }
+export type ClarificationMissingField = "amount" | "unit" | "target" | "direction" | "material" | "finish" | "component" | "quantity" | "desired-final-dimension";
+export type PendingEditDraft =
+  | { type: "dimension-change"; base: ProjectEditBase; axis: DimensionAxis; operation: "set" | "delta" | "maximum"; direction: 1 | -1; unit?: "in" }
+  | { type: "component-move"; base: ProjectEditBase; axis: "x" | "y" | "z"; operation: "set" | "delta"; direction: 1 | -1; unit?: "in" }
+  | { type: "component-resize"; base: ProjectEditBase; axis: "width" | "height" | "depth"; operation: "set" | "delta"; direction: 1 | -1; unit?: "in" }
+  | { type: "component-remove"; base: ProjectEditBase }
+  | { type: "unresolved"; base: ProjectEditBase };
+export interface PendingClarification {
+  id: string;
+  pendingEditId: string;
+  editType: ConversationEditType | "unresolved";
+  target: EditTarget;
+  property?: string;
+  operation?: string;
+  missingField: ClarificationMissingField;
+  expectedUnit?: "in";
+  originalRequest: string;
+  question: string;
+  reason: string;
+  draft: PendingEditDraft;
+  retainedEdits: StructuredProjectEdit[];
+  options?: string[];
+}
+export type EditClarification = PendingClarification;
+export interface ConversationEditRequest { text: string; project: UniversalWoodProject; memory: EditorMemory; selectedComponentId?: string | null; pendingClarification?: PendingClarification | null; messageId?: string; now?: string; }
 export interface ConversationEditTranslation { normalizedRequest: string; edits: StructuredProjectEdit[]; clarification: EditClarification | null; memory: EditorMemory; }
 export interface EditValidationIssue { editId: string; code: "invalid-value" | "invalid-material" | "missing-target" | "conflict" | "unsafe-edit" | "verified-route-required"; message: string; }
 export interface EditValidationResult { valid: boolean; accepted: StructuredProjectEdit[]; issues: EditValidationIssue[]; requiresDeterministicGenerator: boolean; }
 export interface EditExplanation { summary: string; changes: string[]; reason: string; tradeoffs: string[]; concerns: string[]; }
-export interface ConversationEditResult { status: "applied" | "clarification" | "rejected" | "route-required"; project: UniversalWoodProject; edits: StructuredProjectEdit[]; clarification: EditClarification | null; explanation: EditExplanation; memory: EditorMemory; }
-export interface ConversationEditHistoryEntry { id: string; request: string; edits: StructuredProjectEdit[]; before: UniversalWoodProject; after: UniversalWoodProject; explanation: EditExplanation; timestamp: string; origin: ConversationEditOrigin; }
+export interface ClarificationContext { originalRequest: string; question: string; answer: string; }
+export interface ConversationEditResult { status: "applied" | "clarification" | "rejected" | "route-required" | "cancelled" | "duplicate"; project: UniversalWoodProject; edits: StructuredProjectEdit[]; clarification: PendingClarification | null; explanation: EditExplanation; memory: EditorMemory; clarificationContext?: ClarificationContext; }
+export interface ConversationEditHistoryEntry { id: string; request: string; edits: StructuredProjectEdit[]; before: UniversalWoodProject; after: UniversalWoodProject; explanation: EditExplanation; timestamp: string; origin: ConversationEditOrigin; clarification?: ClarificationContext; }
 export interface ConversationEditHistory { schemaVersion: 1; initialProject: UniversalWoodProject; past: ConversationEditHistoryEntry[]; future: ConversationEditHistoryEntry[]; memory: EditorMemory; limit: number; }
 export interface ConversationEditor { translate(request: ConversationEditRequest): ConversationEditTranslation; }
