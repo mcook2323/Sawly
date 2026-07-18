@@ -58,9 +58,9 @@ export default function Home() {
 
       <section className="ai-hero px-5 py-14 sm:px-6 sm:py-24 lg:px-8">
         <div className="mx-auto max-w-5xl text-center">
-          <p className="ds-eyebrow">A clearer way from idea to build</p>
-          <h1 className="ds-display mx-auto mt-5 max-w-4xl">Design what fits your home.</h1>
-          <p className="ds-body mx-auto mt-6 max-w-2xl text-lg">Describe what you want to make. Sawly uses guided questions and deterministic matching to connect it to a practical, customizable project when a verified template exists.</p>
+          <p className="ds-eyebrow">AI Project Designer</p>
+          <h1 className="ds-display mx-auto mt-5 max-w-4xl">What do you want to build?</h1>
+          <p className="ds-body mx-auto mt-6 max-w-2xl text-lg">Describe anything made primarily from wood. Sawly will shape the idea through a focused conversation, create three design directions, and keep construction details behind verified deterministic generators.</p>
           <div className="mt-10 text-left"><AIDesignPrompt /></div>
         </div>
         {featured && <div className="pointer-events-none absolute right-[4%] top-16 hidden w-56 rotate-3 opacity-20 xl:block"><ProjectImage asset={featured.images.cardThumbnail} sizes="224px" priority className="aspect-[4/3] rounded-[var(--radius-xl)]" /></div>}
