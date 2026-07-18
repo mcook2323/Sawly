@@ -275,3 +275,18 @@ input {
   color: var(--color-brand-hover);
   transform: translateY(-1px);
 }
+
+.studio-dimension-guide,
+.studio-dimension-guide * {
+  pointer-events: none;
+}
+
+.studio-dimension-handle {
+  pointer-events: auto;
+}
+
+@media (max-width: 640px) {
+  .studio-dimension-guide text {
+    font-size: 11px;
+  }
+}
