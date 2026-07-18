@@ -38,6 +38,14 @@ import { FREESTANDING_PERGOLA_EXAMPLE, RAISED_PLAYHOUSE_EXAMPLE, STORAGE_CABINET
 import { PROJECT_CATEGORIES } from "../types/universalProject";
 import { classifyProject, createUniversalDraft, generateProjectConcepts, planProjectRequest } from "../lib/ai/projectPlanner";
 import { ConceptOnlyPlanRouter, ConservativeFinalValidationLayer, DeterministicConceptGenerator, DeterministicRequestClassifier, DeterministicRequirementsCollector, PlaceholderSafetyAndRiskReviewer } from "../lib/ai/pipeline";
+import { projectToScene, projectToVerifiedBenchScene, projectToVerifiedTableScene } from "../lib/visual-designer/projectToScene";
+import { sceneToConceptProject } from "../lib/visual-designer/sceneToProject";
+import { createHistory, commitHistory, redoHistory, undoHistory } from "../lib/visual-designer/history";
+import { snapValue } from "../lib/visual-designer/snapping";
+import { canEditObject, validateDimensions, validateScene } from "../lib/visual-designer/validation";
+import { LocalVisualDraftPersistence, VISUAL_DRAFT_STORAGE_KEY } from "../lib/visual-designer/persistence";
+import { createConceptualExport } from "../lib/visual-designer/export";
+import { evaluateVisualConstraints } from "../lib/visual-designer/constraints";
 
 test("Outdoor Table accepts exact boundaries and rejects invalid dimensions", () => {
   for (const length of [TABLE_DIMENSION_LIMITS.length.min, TABLE_DIMENSION_LIMITS.length.max]) {
@@ -686,4 +694,92 @@ test("future AI layers default to conservative concept-only boundaries", () => {
   assert.equal(route.allowsAIGeometry, false);
   assert.equal(safety.claimsCodeCompliance, false);
   assert.equal(validation.finalPlanAllowed, false);
+});
+
+test("verified Table adapter preserves deterministic dimensions and edit protection", () => {
+  const plan = generateTablePlan({ length: 84, width: 40, height: 30, wood: "cedar", style: "modern" });
+  const project = adaptOutdoorTablePlan(plan);
+  const scene = projectToVerifiedTableScene(project);
+  assert.equal(scene.metadata.adapter, "verified-table");
+  assert.equal(scene.objects.find((object) => object.type === "tabletop")?.dimensions.width, 84);
+  assert.ok(scene.objects.every((object) => object.status === "verified" && object.locked && !object.editable));
+  assert.equal(validateScene(scene).valid, true);
+  assert.throws(() => sceneToConceptProject(project, scene), /Verified geometry/);
+});
+
+test("verified Bench adapter preserves deterministic seat dimensions", () => {
+  const plan = generateBenchPlan({ length: 72, depth: 20, seatHeight: 18, wood: "pine", style: "minimal" });
+  const scene = projectToVerifiedBenchScene(adaptOutdoorBenchPlan(plan));
+  const seat = scene.objects.find((object) => object.type === "seat");
+  assert.equal(scene.metadata.adapter, "verified-bench");
+  assert.deepEqual(seat?.dimensions, { width: 72, height: 1.5, depth: 20, unit: "in" });
+  assert.ok(scene.warnings.every((warning) => !/Concept model/.test(warning)));
+});
+
+test("generic adapters create useful conceptual cabinet, pergola, and playhouse scenes", () => {
+  for (const [project, expectedType] of [[STORAGE_CABINET_EXAMPLE, "shelf"], [FREESTANDING_PERGOLA_EXAMPLE, "post"], [RAISED_PLAYHOUSE_EXAMPLE, "platform"]] as const) {
+    const concept = { ...project, verificationStatus: "concept-only" as const, source: { kind: "concept" as const, id: "test", version: "1" } };
+    const scene = projectToScene(concept);
+    assert.equal(scene.metadata.adapter, "generic");
+    assert.equal(scene.metadata.conceptual, true);
+    assert.ok(scene.objects.some((object) => object.type === expectedType));
+    assert.ok(scene.objects.every((object) => object.status === "conceptual" && object.editable));
+    assert.ok(scene.warnings.includes("Concept model — not a verified construction plan."));
+  }
+});
+
+test("unknown components fall back to an inferred conceptual box", () => {
+  const result = planProjectRequest("Custom wooden sculpture 48x24x60", { environment: "indoor", intendedUse: "Display", material: "walnut", style: "modern" });
+  const project = createUniversalDraft(result.profile, generateProjectConcepts(result.profile)[0]);
+  const scene = projectToScene(project);
+  assert.equal(scene.objects[0]?.type, "generic-box");
+  assert.equal(scene.objects[0]?.status, "conceptual");
+  assert.ok(scene.objects[0]?.metadata.inferred.some((entry) => entry.field === "geometry"));
+});
+
+test("visual draft persistence restores compatible scenes and rejects corruption", () => {
+  const values = new Map<string, string>();
+  const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); }, removeItem: (key: string) => { values.delete(key); } };
+  const persistence = new LocalVisualDraftPersistence(storage);
+  const project = { ...FREESTANDING_PERGOLA_EXAMPLE, verificationStatus: "concept-only" as const, source: { kind: "concept" as const, id: "test", version: "1" } };
+  const scene = projectToScene(project);
+  persistence.save(scene);
+  assert.deepEqual(persistence.load(project.id), scene);
+  values.set(VISUAL_DRAFT_STORAGE_KEY, "{corrupted");
+  assert.equal(persistence.load(project.id), null);
+});
+
+test("visual history supports bounded undo, redo, and redo invalidation", () => {
+  let history = createHistory({ value: 1 }, 2);
+  history = commitHistory(history, { value: 2 }); history = commitHistory(history, { value: 3 }); history = commitHistory(history, { value: 4 });
+  assert.equal(history.past.length, 2);
+  history = undoHistory(history); assert.equal(history.present.value, 3);
+  history = redoHistory(history); assert.equal(history.present.value, 4);
+  history = undoHistory(history); history = commitHistory(history, { value: 9 });
+  assert.equal(history.future.length, 0);
+});
+
+test("visual snapping, dimension validation, and locked protections are deterministic", () => {
+  assert.equal(snapValue(10.19, 0.125), 10.25);
+  assert.equal(validateDimensions({ width: 0, height: 2, depth: 2, unit: "in" }).valid, false);
+  const concept = projectToScene({ ...STORAGE_CABINET_EXAMPLE, verificationStatus: "concept-only", source: { kind: "concept", id: "test", version: "1" } });
+  const locked = { ...concept.objects[0]!, locked: true };
+  assert.equal(canEditObject(locked).allowed, false);
+  assert.equal(canEditObject({ ...locked, locked: false }).allowed, true);
+});
+
+test("risk warnings and safe visual constraints cannot promote conceptual work", () => {
+  const scene = projectToScene({ ...RAISED_PLAYHOUSE_EXAMPLE, verificationStatus: "concept-only", source: { kind: "concept", id: "test", version: "1" } });
+  assert.ok(scene.warnings.some((warning) => /engineering and\/or local code verification/.test(warning)));
+  const invalid = { ...scene, objects: scene.objects.map((object, index) => index === 0 ? { ...object, dimensions: { ...object.dimensions, height: 0 } } : object) };
+  assert.ok(evaluateVisualConstraints(invalid).some((warning) => warning.severity === "blocking"));
+});
+
+test("concept export strips unverified construction content and labels the boundary", () => {
+  const project = { ...STORAGE_CABINET_EXAMPLE, verificationStatus: "concept-only" as const, source: { kind: "concept" as const, id: "test", version: "1" } };
+  const exported = createConceptualExport(project, projectToScene(project));
+  assert.equal(exported.label, "Concept model — not a verified construction plan.");
+  assert.deepEqual(exported.project.cutList, []);
+  assert.deepEqual(exported.project.buildSteps, []);
+  assert.ok(exported.excluded.includes("engineering-claims"));
 });
