@@ -32,6 +32,10 @@ import { createPaidProvider, paidAIEnabled, resolveSawlyAIMode } from "../lib/ai
 import { PROJECT_SNAP_POINTS, seatingCapacity, suggestedLengthForSeating } from "../lib/designStudio";
 import { readSavedProjects, SAVED_PROJECTS_KEY } from "../lib/savedProjects";
 import { isDeliberateStudioPan, studioWheelZoomDelta } from "../lib/studioInteractions";
+import { adaptOutdoorBenchPlan, adaptOutdoorTablePlan } from "../lib/projects/verifiedPlanAdapters";
+import { validateUniversalProject } from "../lib/projects/universalProject";
+import { FREESTANDING_PERGOLA_EXAMPLE, RAISED_PLAYHOUSE_EXAMPLE, STORAGE_CABINET_EXAMPLE } from "../data/universalProjectExamples";
+import { PROJECT_CATEGORIES } from "../types/universalProject";
 
 test("Outdoor Table accepts exact boundaries and rejects invalid dimensions", () => {
   for (const length of [TABLE_DIMENSION_LIMITS.length.min, TABLE_DIMENSION_LIMITS.length.max]) {
@@ -531,4 +535,45 @@ test("studio wheel zoom requires Ctrl or Command while ordinary scrolling passes
 test("studio pan starts only after deliberate pointer movement", () => {
   assert.equal(isDeliberateStudioPan(100, 100, 103, 103), false);
   assert.equal(isDeliberateStudioPan(100, 100, 106, 100), true);
+});
+
+test("universal schema adapts the outdoor table without changing deterministic output", () => {
+  const legacy = generateTablePlan({ length: 84, width: 36, height: 30, wood: "cedar", style: "craftsman" });
+  const universal = adaptOutdoorTablePlan(legacy);
+  assert.equal(validateUniversalProject(universal).valid, true);
+  assert.equal(universal.category, "Furniture");
+  assert.equal(universal.riskTier, "nonstructural");
+  assert.equal(universal.verificationStatus, "verified-generator");
+  assert.deepEqual(universal.cutList.map((item) => [item.name, item.quantity, item.dimensions.length.value]), legacy.cutList.map((item) => [item.name, item.quantity, item.length]));
+  assert.equal(universal.metadata.style, "craftsman");
+});
+
+test("universal schema adapts the outdoor bench without changing deterministic output", () => {
+  const legacy = generateBenchPlan({ length: 72, depth: 18, seatHeight: 18, wood: "pine", style: "park" });
+  const universal = adaptOutdoorBenchPlan(legacy);
+  assert.equal(validateUniversalProject(universal).valid, true);
+  assert.equal(universal.projectType, "outdoor-bench");
+  assert.deepEqual(universal.hardware.map((item) => [item.name, item.quantity]), legacy.hardware.map((item) => [item.name, item.quantity]));
+  assert.equal(universal.intendedUse.capacity, 4);
+});
+
+test("one universal schema represents pergola, cabinet, and raised playhouse risk boundaries", () => {
+  for (const project of [FREESTANDING_PERGOLA_EXAMPLE, STORAGE_CABINET_EXAMPLE, RAISED_PLAYHOUSE_EXAMPLE]) {
+    assert.deepEqual(validateUniversalProject(project), { valid: true, errors: [] }, project.name);
+    assert.ok(project.components.length > 0 && project.connections.length > 0 && project.materials.length > 0 && project.cutList.length > 0 && project.tools.length > 0 && project.buildSteps.length > 0);
+    assert.equal(project.warnings.some((warning) => warning.blocking), true);
+  }
+  assert.equal(FREESTANDING_PERGOLA_EXAMPLE.category, "Outdoor Structure");
+  assert.equal(FREESTANDING_PERGOLA_EXAMPLE.riskTier, "code-sensitive");
+  assert.equal(STORAGE_CABINET_EXAMPLE.category, "Cabinetry");
+  assert.equal(STORAGE_CABINET_EXAMPLE.riskTier, "nonstructural");
+  assert.equal(RAISED_PLAYHOUSE_EXAMPLE.category, "Play Structure");
+  assert.equal(RAISED_PLAYHOUSE_EXAMPLE.riskTier, "code-sensitive");
+  assert.ok(RAISED_PLAYHOUSE_EXAMPLE.verification.specialistReview.includes("structural"));
+});
+
+test("universal project categories cover the intended wood-project families", () => {
+  assert.deepEqual(PROJECT_CATEGORIES, ["Furniture", "Storage", "Cabinetry", "Outdoor Structure", "Play Structure", "Landscape", "Workshop", "Architectural"]);
+  const moderate = { ...STORAGE_CABINET_EXAMPLE, id: "example:anchored-storage", riskTier: "moderately-structural" as const };
+  assert.equal(validateUniversalProject(moderate).valid, true);
 });
