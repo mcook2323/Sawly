@@ -31,6 +31,7 @@ import { conceptError, conceptErrorStatus, type ConceptErrorCategory } from "../
 import { createPaidProvider, paidAIEnabled, resolveSawlyAIMode } from "../lib/ai/mode";
 import { PROJECT_SNAP_POINTS, seatingCapacity, suggestedLengthForSeating } from "../lib/designStudio";
 import { readSavedProjects, SAVED_PROJECTS_KEY } from "../lib/savedProjects";
+import { isDeliberateStudioPan, studioWheelZoomDelta } from "../lib/studioInteractions";
 
 test("Outdoor Table accepts exact boundaries and rejects invalid dimensions", () => {
   for (const length of [TABLE_DIMENSION_LIMITS.length.min, TABLE_DIMENSION_LIMITS.length.max]) {
@@ -519,4 +520,15 @@ test("saved projects restore dimensions, material, and style controls", () => {
   assert.equal(restored?.material, "cedar");
   assert.equal(restored?.style, "farmhouse");
   delete (globalThis as { window?: unknown }).window;
+});
+
+test("studio wheel zoom requires Ctrl or Command while ordinary scrolling passes through", () => {
+  assert.equal(studioWheelZoomDelta({ ctrlKey: false, metaKey: false, deltaY: 100 }), null);
+  assert.equal(studioWheelZoomDelta({ ctrlKey: true, metaKey: false, deltaY: 100 }), -0.08);
+  assert.equal(studioWheelZoomDelta({ ctrlKey: false, metaKey: true, deltaY: -100 }), 0.08);
+});
+
+test("studio pan starts only after deliberate pointer movement", () => {
+  assert.equal(isDeliberateStudioPan(100, 100, 103, 103), false);
+  assert.equal(isDeliberateStudioPan(100, 100, 106, 100), true);
 });

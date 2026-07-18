@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useState, type PointerEvent, type TouchEvent } from "react";
+import { useEffect, useRef, useState, type PointerEvent } from "react";
 import type { WoodMaterial } from "@/calculations/materialCatalog";
 import { getMaterialLabel } from "@/calculations/materialCatalog";
+import { isDeliberateStudioPan, studioWheelZoomDelta } from "@/lib/studioInteractions";
 
 type ProjectKind = "table" | "bench";
 type Mode = "lifestyle" | "blueprint";
@@ -49,6 +50,8 @@ export function PremiumDesignStudio({ project, dimensions, material, style, styl
   const [inspectorOpen, setInspectorOpen] = useState(true);
   const [dimensionsVisible, setDimensionsVisible] = useState(false);
   const [dimensionsManuallySet, setDimensionsManuallySet] = useState(false);
+  const [isPanning, setIsPanning] = useState(false);
+  const canvasRef = useRef<HTMLDivElement>(null);
   const pinchStart = useRef<{ distance: number; zoom: number } | null>(null);
   const swatch = MATERIALS[material];
   const primary = dimensions[0];
@@ -56,6 +59,44 @@ export function PremiumDesignStudio({ project, dimensions, material, style, styl
   const tertiary = dimensions[2];
   const comparisonDelta = Math.max(2, Math.round(primary.value * 0.08));
   const versionB = clamp(primary.value + comparisonDelta, primary.min, primary.max);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const wheel = (event: WheelEvent) => {
+      const direction = studioWheelZoomDelta(event);
+      if (direction === null) return;
+      event.preventDefault();
+      setZoom((value) => Math.min(1.8, Math.max(0.65, Number((value + direction).toFixed(2)))));
+    };
+    const distance = (event: globalThis.TouchEvent) => {
+      const first = event.touches.item(0); const second = event.touches.item(1);
+      return first && second ? Math.hypot(second.clientX - first.clientX, second.clientY - first.clientY) : null;
+    };
+    const touchStart = (event: globalThis.TouchEvent) => {
+      const startDistance = distance(event);
+      pinchStart.current = startDistance ? { distance: startDistance, zoom } : null;
+    };
+    const touchMove = (event: globalThis.TouchEvent) => {
+      if (!pinchStart.current || event.touches.length !== 2) return;
+      const currentDistance = distance(event); if (!currentDistance) return;
+      event.preventDefault();
+      setZoom(Math.min(1.8, Math.max(0.65, Number((pinchStart.current.zoom * (currentDistance / pinchStart.current.distance)).toFixed(2)))));
+    };
+    const touchEnd = () => { pinchStart.current = null; };
+    canvas.addEventListener("wheel", wheel, { passive: false });
+    canvas.addEventListener("touchstart", touchStart, { passive: true });
+    canvas.addEventListener("touchmove", touchMove, { passive: false });
+    canvas.addEventListener("touchend", touchEnd, { passive: true });
+    canvas.addEventListener("touchcancel", touchEnd, { passive: true });
+    return () => {
+      canvas.removeEventListener("wheel", wheel);
+      canvas.removeEventListener("touchstart", touchStart);
+      canvas.removeEventListener("touchmove", touchMove);
+      canvas.removeEventListener("touchend", touchEnd);
+      canvas.removeEventListener("touchcancel", touchEnd);
+    };
+  }, [zoom]);
 
   function selectMode(nextMode: Mode) {
     setMode(nextMode);
@@ -87,44 +128,31 @@ export function PremiumDesignStudio({ project, dimensions, material, style, styl
   }
 
   function startPan(event: PointerEvent<HTMLDivElement>) {
-    if (event.button !== 0 && event.pointerType === "mouse") return;
+    if (event.pointerType === "touch" || event.button !== 0) return;
     const startX = event.clientX;
     const startY = event.clientY;
     const startPanValue = pan;
-    event.currentTarget.setPointerCapture(event.pointerId);
+    const target = event.currentTarget;
+    let panning = false;
     const move = (moveEvent: globalThis.PointerEvent) => {
+      if (!panning && !isDeliberateStudioPan(startX, startY, moveEvent.clientX, moveEvent.clientY)) return;
+      if (!panning) { panning = true; setIsPanning(true); target.setPointerCapture(event.pointerId); }
+      moveEvent.preventDefault();
       setPan({ x: startPanValue.x + moveEvent.clientX - startX, y: startPanValue.y + moveEvent.clientY - startY });
     };
     const up = () => {
+      setIsPanning(false);
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
   }
 
   function zoomBy(delta: number) {
     setZoom((value) => Math.min(1.8, Math.max(0.65, Number((value + delta).toFixed(2)))));
-  }
-
-  function touchDistance(event: TouchEvent<HTMLDivElement>) {
-    const first = event.touches.item(0);
-    const second = event.touches.item(1);
-    if (!first || !second) return null;
-    return Math.hypot(second.clientX - first.clientX, second.clientY - first.clientY);
-  }
-
-  function startTouchZoom(event: TouchEvent<HTMLDivElement>) {
-    const distance = touchDistance(event);
-    pinchStart.current = distance ? { distance, zoom } : null;
-  }
-
-  function moveTouchZoom(event: TouchEvent<HTMLDivElement>) {
-    if (!pinchStart.current || event.touches.length < 2) return;
-    event.preventDefault();
-    const distance = touchDistance(event);
-    if (!distance) return;
-    setZoom(Math.min(1.8, Math.max(0.65, Number((pinchStart.current.zoom * (distance / pinchStart.current.distance)).toFixed(2)))));
   }
 
   return (
@@ -144,12 +172,12 @@ export function PremiumDesignStudio({ project, dimensions, material, style, styl
             </div>
           </div>
 
-          <div onPointerDown={startPan} onTouchStart={startTouchZoom} onTouchMove={moveTouchZoom} onTouchEnd={() => { pinchStart.current = null; }} onWheel={(event) => { event.preventDefault(); zoomBy(event.deltaY > 0 ? -0.08 : 0.08); }} className={`relative min-h-[30rem] touch-none cursor-grab overflow-hidden rounded-[1.5rem] border border-[#d8c9b8] active:cursor-grabbing ${mode === "blueprint" ? "blueprint-grid" : "premium-lifestyle"}`}>
+          <div ref={canvasRef} onPointerDown={startPan} className={`relative min-h-[30rem] touch-pan-y overflow-hidden rounded-[1.5rem] border border-[#d8c9b8] ${isPanning ? "cursor-grabbing" : "cursor-grab"} ${mode === "blueprint" ? "blueprint-grid" : "premium-lifestyle"}`}>
             <div onPointerDown={(event) => event.stopPropagation()} className="absolute left-3 top-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-wrap gap-2 rounded-2xl bg-white/88 p-2 shadow-sm backdrop-blur sm:left-4 sm:top-4 sm:rounded-full">
               <button type="button" onClick={() => zoomBy(0.1)} className="studio-tool">Zoom +</button>
               <button type="button" onClick={() => zoomBy(-0.1)} className="studio-tool">Zoom -</button>
-              <button type="button" onClick={() => setPan((value) => ({ x: value.x - 16, y: value.y }))} className="studio-tool">Pan</button>
               <button type="button" onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} className="studio-tool">Reset</button>
+              <span className="self-center px-2 text-[0.68rem] font-bold text-[#6f6257]">Ctrl/⌘ + scroll to zoom · drag to pan</span>
             </div>
             <svg viewBox="0 0 860 540" role="img" aria-label={`${displayStyle(styleOptions, style)} ${project} preview`} className="h-full min-h-[30rem] w-full select-none">
               <defs>
